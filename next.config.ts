@@ -1,11 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Vercel Edge / Node runtime timeout for long-running API routes (seconds)
-  // The analyze route can take up to ~60 s for wallets with deep history.
-  experimental: {
-    // nothing needed currently
-  },
+  productionBrowserSourceMaps: false,
 
   async headers() {
     return [
