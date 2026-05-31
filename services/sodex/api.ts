@@ -19,8 +19,6 @@
 import {
   ApiTrade,
   ApiPositionHistory,
-  ApiFunding,
-  ApiFeeRate,
   ApiAccountState,
   ApiOrder,
   SoDEXEnvelope,
@@ -30,21 +28,19 @@ import { sleep, normaliseTimestamp } from "@/lib/utils";
 const BASE      = "https://mainnet-gw.sodex.dev/api/v1/perps";
 const SPOT_BASE = "https://mainnet-gw.sodex.dev/api/v1/spot";
 
-// Official max limits per endpoint
+// Official max limits per endpoint — use maximum to minimise page count
 const LIMIT = {
-  trades:    500,  // official max 1000; use 500 to reduce retry rate
-  fundings:  500,  // official max 1000
-  positions: 200,  // official max 500
-  orders:    200,  // official max 500
+  trades:    1000, // official max 1000 — halves pages vs 500
+  positions: 500,  // official max 500 — 2.5x fewer pages vs 200
+  orders:    500,  // official max 500
 } as const;
 
 // Retry budget for intermittent code=-1 errors (probability per attempt ≈ 30%)
 // P(all 12 fail) = 0.30^12 ≈ 0.00005% → effectively guaranteed to succeed
-// Using short delays to stay within Vercel function timeout limits
 const MAX_RETRIES = 12;
 
-// Inter-page delay — keeps us well within the 40-pages/min rate-limit budget
-const RATE_DELAY_MS = 300;
+// Inter-page delay — reduced since fewer pages means less total time
+const RATE_DELAY_MS = 150;
 
 export type ProgressCallback = (message: string) => void;
 
@@ -192,51 +188,11 @@ export function fetchPositionHistory(
   );
 }
 
-export function fetchFundingHistory(
-  address: string,
-  onProgress?: ProgressCallback
-): Promise<ApiFunding[]> {
-  return fetchAllTimeBased<ApiFunding>(
-    `${BASE}/accounts/${address}/fundings`,
-    LIMIT.fundings,
-    "Buscando funding",
-    onProgress
-  );
-}
-
-export function fetchOrderHistory(
-  address: string,
-  onProgress?: ProgressCallback
-): Promise<ApiOrder[]> {
-  return fetchAllTimeBased<ApiOrder>(
-    `${BASE}/accounts/${address}/orders/history`,
-    LIMIT.orders,
-    "Buscando ordens",
-    onProgress
-  );
-}
-
-export function fetchFeeRate(address: string): Promise<ApiFeeRate> {
-  return fetchOne<ApiFeeRate>(`${BASE}/accounts/${address}/fee-rate`);
-}
-
 export function fetchAccountState(address: string): Promise<ApiAccountState> {
   return fetchOne<ApiAccountState>(`${BASE}/accounts/${address}/state`);
 }
 
-// ─── Spot endpoints ───────────────────────────────────────────────────────
-
-export function fetchSpotTrades(
-  address: string,
-  onProgress?: ProgressCallback
-): Promise<ApiTrade[]> {
-  return fetchAllTimeBased<ApiTrade>(
-    `${SPOT_BASE}/accounts/${address}/trades`,
-    LIMIT.trades,
-    "Buscando spot trades",
-    onProgress
-  );
-}
+// ─── Spot endpoints (kept for future use) ────────────────────────────────
 
 export function fetchSpotOrderHistory(
   address: string,

@@ -2,7 +2,6 @@ import {
   fetchTrades,
   fetchAccountState,
   fetchPositionHistory,
-  fetchSpotTrades,
   ProgressCallback,
 } from "./api";
 import {
@@ -485,11 +484,10 @@ export async function analyzeWallet(
   // Running alone avoids hammering the API and causing code=-1 errors.
   const rawTrades = await fetchTrades(address, onProgress);
 
-  // Step 2: fetch remaining endpoints in parallel — they are lighter and
-  // won't compete with trades pagination anymore.
-  // Funding is intentionally excluded: it can have thousands of records,
-  // adds significant latency, and is not critical for the main analysis.
-  const [rawPosHistory, state, rawSpotTrades] = await Promise.all([
+  // Step 2: fetch position history + account state in parallel.
+  // Funding and spot trades removed — funding has thousands of records (slow),
+  // spot trades are rarely used. Both can be re-added later if needed.
+  const [rawPosHistory, state] = await Promise.all([
     fetchPositionHistory(address, onProgress).catch((e) => {
       console.error("[sodex] positions/history failed:", (e as Error).message);
       return [] as ApiPositionHistory[];
@@ -498,14 +496,10 @@ export async function analyzeWallet(
       console.error("[sodex] state failed:", (e as Error).message);
       return null as ApiAccountState | null;
     }),
-    fetchSpotTrades(address, onProgress).catch((e) => {
-      console.error("[sodex] spot trades failed:", (e as Error).message);
-      return [] as ApiTrade[];
-    }),
   ]);
 
-  // Funding removed — use empty array so downstream calculations stay intact
   const rawFundings: ApiFunding[] = [];
+  const rawSpotTrades: ApiTrade[] = [];
 
   onProgress?.("Analisando dados...");
 
