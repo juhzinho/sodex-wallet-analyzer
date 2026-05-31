@@ -39,11 +39,12 @@ const LIMIT = {
 } as const;
 
 // Retry budget for intermittent code=-1 errors (probability per attempt ≈ 30%)
-// P(all 8 fail) = 0.30^8 ≈ 0.007% → effectively guaranteed to succeed
-const MAX_RETRIES = 8;
+// P(all 12 fail) = 0.30^12 ≈ 0.00005% → effectively guaranteed to succeed
+// Using short delays to stay within Vercel function timeout limits
+const MAX_RETRIES = 12;
 
 // Inter-page delay — keeps us well within the 40-pages/min rate-limit budget
-const RATE_DELAY_MS = 200;
+const RATE_DELAY_MS = 300;
 
 export type ProgressCallback = (message: string) => void;
 
@@ -73,7 +74,7 @@ async function apiFetch<T>(url: string): Promise<SoDEXEnvelope<T>> {
 
       // code=-1: intermittent server error — back-off and retry
       if (envelope.code === -1) {
-        const wait = 2000 * (attempt + 1);
+        const wait = Math.min(300 * Math.pow(1.8, attempt), 5000);
         console.warn(`[sodex] code=-1 (attempt ${attempt + 1}/${MAX_RETRIES}), retry in ${wait}ms`);
         await sleep(wait);
         lastErr = new Error(`code=-1: ${envelope.msg ?? "intermittent server error"}`);
@@ -85,7 +86,7 @@ async function apiFetch<T>(url: string): Promise<SoDEXEnvelope<T>> {
     } catch (err) {
       if (err instanceof Error && err.message.startsWith("SoDEX error code=")) throw err;
       lastErr = err instanceof Error ? err : new Error(String(err));
-      if (attempt < MAX_RETRIES - 1) await sleep(600 * (attempt + 1));
+      if (attempt < MAX_RETRIES - 1) await sleep(Math.min(300 * Math.pow(1.8, attempt), 5000));
     }
   }
 
