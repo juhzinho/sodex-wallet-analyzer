@@ -100,7 +100,7 @@ function ChartCard({ title, subtitle, children, className }: {
 
 // ── Tab bar ───────────────────────────────────────────────────────────────
 
-type Tab = "perps" | "total";
+type Tab = "perps" | "spot" | "total";
 
 function TabBar({ active, onChange, counts }: {
   active: Tab;
@@ -109,6 +109,7 @@ function TabBar({ active, onChange, counts }: {
 }) {
   const tabs: { id: Tab; label: string }[] = [
     { id: "perps", label: "Perps" },
+    { id: "spot",  label: "Spot"  },
     { id: "total", label: "Total" },
   ];
 
@@ -158,6 +159,7 @@ export default function Dashboard({ data, onReset }: Props) {
 
   const {
     metrics, processedTrades, chartData, marketData, longShortData,
+    spotMetrics, spotTrades, spotMarketData, spotLongShortData,
     totalVolume, totalFees, totalTrades,
   } = data;
 
@@ -209,6 +211,7 @@ export default function Dashboard({ data, onReset }: Props) {
           onChange={setTab}
           counts={{
             perps: metrics.trades,
+            spot:  spotMetrics.trades,
             total: totalTrades,
           }}
         />
@@ -287,6 +290,40 @@ export default function Dashboard({ data, onReset }: Props) {
       </>}
 
 
+      {/* ════════════════════════════════ SPOT TAB ════════════════════════════════ */}
+      {tab === "spot" && <>
+        <FadeUp index={2}>
+          <Section>Spot Overview</Section>
+          {spotMetrics.trades === 0 ? (
+            <div className="glass-card p-10 text-center">
+              <p className="text-white/25 text-sm font-orbitron tracking-widest uppercase">No spot trades found for this wallet</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <MetricsCard index={0} title="Spot Volume" rawValue={spotMetrics.volume} displayValue={formatUsd(spotMetrics.volume, { compact: true })} subValue={`${spotMetrics.trades.toLocaleString()} trades`} trend="neutral"  icon={<I.Volume />} />
+              <MetricsCard index={1} title="Spot Fees"   rawValue={spotMetrics.fees}   displayValue={formatUsd(spotMetrics.fees,   { compact: true })} subValue="Maker + taker"                                   trend="negative" icon={<I.Fee />} />
+              <MetricsCard index={2} title="Buy Volume"  rawValue={spotMetrics.longVolume}  displayValue={formatUsd(spotMetrics.longVolume,  { compact: true })} subValue={`${spotMetrics.longTrades.toLocaleString()} buys`}  trend="positive" icon={<I.Volume />} />
+              <MetricsCard index={3} title="Sell Volume" rawValue={spotMetrics.shortVolume} displayValue={formatUsd(spotMetrics.shortVolume, { compact: true })} subValue={`${spotMetrics.shortTrades.toLocaleString()} sells`} trend="negative" icon={<I.Volume />} />
+            </div>
+          )}
+        </FadeUp>
+
+        {spotMetrics.trades > 0 && <>
+          <FadeUp index={3} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ChartCard title="Volume by Market" subtitle="Top 8 spot markets">
+              <VolumeByMarketChart data={spotMarketData} />
+            </ChartCard>
+            <ChartCard title="Buy vs Sell" subtitle="Trade count distribution">
+              <LongShortChart data={spotLongShortData} />
+            </ChartCard>
+          </FadeUp>
+          <FadeUp index={4}>
+            <Section>Spot Trade History</Section>
+            <TradesTable trades={spotTrades} />
+          </FadeUp>
+        </>}
+      </>}
+
       {/* ════════════════════════════════ TOTAL TAB ════════════════════════════════ */}
       {tab === "total" && <>
         <FadeUp index={2}>
@@ -311,6 +348,16 @@ export default function Dashboard({ data, onReset }: Props) {
             <StatRow label="Net PnL"  value={formatUsd(metrics.netPnl, { signed: true })} color={metrics.netPnl >= 0 ? "#FF6B00" : "#ef4444"} />
           </div>
 
+          {/* Spot breakdown */}
+          <div className="glass-card p-5">
+            <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">Spot</p>
+            <StatRow label="Volume" value={formatUsd(spotMetrics.volume, { compact: true })} />
+            <StatRow label="Fees"   value={formatUsd(spotMetrics.fees,   { compact: true })} color="#ef4444" />
+            <StatRow label="Trades" value={spotMetrics.trades.toLocaleString()} />
+            <StatRow label="Buy Vol"  value={formatUsd(spotMetrics.longVolume,  { compact: true })} color="#FF6B00" />
+            <StatRow label="Sell Vol" value={formatUsd(spotMetrics.shortVolume, { compact: true })} />
+          </div>
+
           {/* Combined */}
           <div className="glass-card p-5" style={{ border: "1px solid rgba(255,107,0,0.3)", boxShadow: "0 0 20px rgba(255,107,0,0.08)" }}>
             <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.8)] mb-3">
@@ -320,6 +367,7 @@ export default function Dashboard({ data, onReset }: Props) {
             <StatRow label="Total Fees"   value={formatUsd(totalFees,   { compact: true })} color="#ef4444" />
             <StatRow label="Total Trades" value={totalTrades.toLocaleString()} color="#FF6B00" />
             <StatRow label="Perps Share"  value={formatPercent(totalVolume > 0 ? (metrics.volume / totalVolume) * 100 : 0)} />
+            <StatRow label="Spot Share"   value={formatPercent(totalVolume > 0 ? (spotMetrics.volume / totalVolume) * 100 : 0)} />
           </div>
         </FadeUp>
       </>}

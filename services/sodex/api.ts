@@ -190,7 +190,19 @@ export function fetchAccountState(address: string): Promise<ApiAccountState> {
   return fetchOne<ApiAccountState>(`${BASE}/accounts/${address}/state`);
 }
 
-// ─── Spot endpoints (kept for future use) ────────────────────────────────
+// ─── Spot endpoints ───────────────────────────────────────────────────────
+
+export function fetchSpotTrades(
+  address: string,
+  onProgress?: ProgressCallback
+): Promise<ApiTrade[]> {
+  return fetchAllTimeBased<ApiTrade>(
+    `${SPOT_BASE}/accounts/${address}/trades`,
+    LIMIT.trades,
+    "Buscando spot trades",
+    onProgress
+  );
+}
 
 export function fetchSpotOrderHistory(
   address: string,
