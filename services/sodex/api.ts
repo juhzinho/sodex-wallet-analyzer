@@ -109,6 +109,13 @@ function extractTs(item: unknown): number {
   return normaliseTimestamp(raw as number);
 }
 
+// How far back to fetch — 90 days keeps analysis fast for active wallets.
+// Covers ~3 months of trading history which is plenty for meaningful analytics.
+const LOOKBACK_MS = 90 * 24 * 60 * 60 * 1000;
+
+// Max pages per endpoint — safety cap to prevent timeout on extreme wallets
+const MAX_PAGES = 20; // 20 × 1000 = 20 000 trades max
+
 // ─── Time-based paginator with progress callback ──────────────────────────
 
 async function fetchAllTimeBased<T>(
@@ -118,11 +125,16 @@ async function fetchAllTimeBased<T>(
   onProgress?: ProgressCallback
 ): Promise<T[]> {
   const all: T[] = [];
+  const startTime = Date.now() - LOOKBACK_MS;
   let endTime: number | undefined;
   let prevMinTs = Infinity;
   let page = 0;
 
   for (;;) {
+    if (page >= MAX_PAGES) {
+      onProgress?.(`${label}... limite de ${MAX_PAGES} páginas atingido`);
+      break;
+    }
     page++;
     onProgress?.(`${label}... página ${page}`);
 
@@ -133,16 +145,25 @@ async function fetchAllTimeBased<T>(
     const batch = envelope.data ?? [];
 
     if (!batch.length) break;
-    all.push(...batch);
 
+    // Filter out records older than our lookback window
+    const filtered = batch.filter((item) => {
+      const ts = extractTs(item);
+      return ts === 0 || ts >= startTime;
+    });
+
+    all.push(...filtered);
     onProgress?.(`${label}... ${all.length} registros`);
 
+    // Stop if the whole batch was before our start window
+    if (filtered.length === 0) break;
     if (batch.length < limit) break;
 
     const timestamps = batch.map(extractTs).filter((t) => t > 0);
     if (!timestamps.length) break;
 
     const minTs = Math.min(...timestamps);
+    if (minTs < startTime) break; // reached the lookback boundary
     if (minTs >= prevMinTs) break;
 
     prevMinTs = minTs;
