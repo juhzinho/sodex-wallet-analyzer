@@ -72,10 +72,11 @@ async function apiFetch<T>(url: string): Promise<SoDEXEnvelope<T>> {
 
       if (envelope.code === 0) return envelope;
 
-      // code=-1: intermittent server error — back-off and retry
+      // code=-1: intermittent server error — back-off + jitter and retry
       if (envelope.code === -1) {
-        const wait = Math.min(300 * Math.pow(1.8, attempt), 5000);
-        console.warn(`[sodex] code=-1 (attempt ${attempt + 1}/${MAX_RETRIES}), retry in ${wait}ms`);
+        const base = Math.min(300 * Math.pow(1.8, attempt), 5000);
+        const wait = base + Math.random() * 500; // add jitter to avoid thundering herd
+        console.warn(`[sodex] code=-1 (attempt ${attempt + 1}/${MAX_RETRIES}), retry in ${Math.round(wait)}ms`);
         await sleep(wait);
         lastErr = new Error(`code=-1: ${envelope.msg ?? "intermittent server error"}`);
         continue;
@@ -86,7 +87,10 @@ async function apiFetch<T>(url: string): Promise<SoDEXEnvelope<T>> {
     } catch (err) {
       if (err instanceof Error && err.message.startsWith("SoDEX error code=")) throw err;
       lastErr = err instanceof Error ? err : new Error(String(err));
-      if (attempt < MAX_RETRIES - 1) await sleep(Math.min(300 * Math.pow(1.8, attempt), 5000));
+      if (attempt < MAX_RETRIES - 1) {
+        const base = Math.min(300 * Math.pow(1.8, attempt), 5000);
+        await sleep(base + Math.random() * 500);
+      }
     }
   }
 

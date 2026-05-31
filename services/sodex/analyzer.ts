@@ -482,27 +482,29 @@ export async function analyzeWallet(
 ): Promise<FullAnalysis> {
   _tradeCounter = 0;
 
-  // All endpoints fetch in parallel — perps + spot simultaneously.
-  const [rawTrades, rawFundings, rawPosHistory, state, rawSpotTrades] =
-    await Promise.all([
-      fetchTrades(address, onProgress),
-      fetchFundingHistory(address, onProgress).catch((e) => {
-        console.error("[sodex] fundings failed:", (e as Error).message);
-        return [] as ApiFunding[];
-      }),
-      fetchPositionHistory(address, onProgress).catch((e) => {
-        console.error("[sodex] positions/history failed:", (e as Error).message);
-        return [] as ApiPositionHistory[];
-      }),
-      fetchAccountState(address).catch((e) => {
-        console.error("[sodex] state failed:", (e as Error).message);
-        return null as ApiAccountState | null;
-      }),
-      fetchSpotTrades(address, onProgress).catch((e) => {
-        console.error("[sodex] spot trades failed:", (e as Error).message);
-        return [] as ApiTrade[];
-      }),
-    ]);
+  // Sequential fetching — avoids hammering SoDEX API with parallel requests
+  // which dramatically increases code=-1 intermittent errors.
+  const rawTrades = await fetchTrades(address, onProgress);
+
+  const rawPosHistory = await fetchPositionHistory(address, onProgress).catch((e) => {
+    console.error("[sodex] positions/history failed:", (e as Error).message);
+    return [] as ApiPositionHistory[];
+  });
+
+  const rawFundings = await fetchFundingHistory(address, onProgress).catch((e) => {
+    console.error("[sodex] fundings failed:", (e as Error).message);
+    return [] as ApiFunding[];
+  });
+
+  const state = await fetchAccountState(address).catch((e) => {
+    console.error("[sodex] state failed:", (e as Error).message);
+    return null as ApiAccountState | null;
+  });
+
+  const rawSpotTrades = await fetchSpotTrades(address, onProgress).catch((e) => {
+    console.error("[sodex] spot trades failed:", (e as Error).message);
+    return [] as ApiTrade[];
+  });
 
   onProgress?.("Analisando dados...");
 
