@@ -3,40 +3,29 @@ import WalletAnalyzer from "@/components/WalletAnalyzer";
 function SoDEXLogo() {
   return (
     <div className="logo-3d-spin">
-      <svg width="38" height="38" viewBox="0 0 38 38" fill="none" aria-label="SoDEX">
+      <svg width="38" height="38" viewBox="0 0 100 100" fill="none" aria-label="SoDEX">
         <defs>
-          <linearGradient id="hg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#FF8A33" />
-            <stop offset="100%" stopColor="#FF6B00" />
+          <linearGradient id="cube-top" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#e0e0e0" />
+            <stop offset="100%" stopColor="#a0a0a0" />
           </linearGradient>
-          <filter id="logo-glow">
-            <feGaussianBlur stdDeviation="1.5" result="b" />
-            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
+          <linearGradient id="cube-left" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#555" />
+            <stop offset="100%" stopColor="#888" />
+          </linearGradient>
+          <linearGradient id="cube-right" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#777" />
+            <stop offset="100%" stopColor="#444" />
+          </linearGradient>
         </defs>
-        <path
-          d="M19 2L34 10.5V27.5L19 36L4 27.5V10.5L19 2Z"
-          fill="rgba(255,107,0,0.12)"
-          stroke="url(#hg)"
-          strokeWidth="1.5"
-          filter="url(#logo-glow)"
-        />
-        <path
-          d="M19 8.5L29 14V26L19 31.5L9 26V14L19 8.5Z"
-          fill="rgba(255,107,0,0.07)"
-          stroke="rgba(255,107,0,0.30)"
-          strokeWidth="0.75"
-        />
-        <text
-          x="19" y="24.5"
-          textAnchor="middle"
-          fill="url(#hg)"
-          fontSize="15"
-          fontWeight="900"
-          fontFamily="Orbitron, sans-serif"
-        >
-          S
-        </text>
+        {/* Top face */}
+        <polygon points="50,10 85,30 50,50 15,30" fill="url(#cube-top)" />
+        {/* Left face */}
+        <polygon points="15,30 50,50 50,90 15,70" fill="url(#cube-left)" />
+        {/* Right face */}
+        <polygon points="85,30 50,50 50,90 85,70" fill="url(#cube-right)" />
+        {/* Orange accent square on right face */}
+        <polygon points="68,52 80,46 80,58 68,64" fill="#FF6B00" />
       </svg>
     </div>
   );
