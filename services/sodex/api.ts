@@ -55,9 +55,13 @@ async function apiFetch<T>(url: string): Promise<SoDEXEnvelope<T>> {
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
+      // IMPORTANT: cache: "no-store" is critical here.
+      // SoDEX returns code=-1 errors with HTTP 200, which Next.js would cache.
+      // Caching would make every retry return the SAME cached error response,
+      // defeating the entire retry mechanism. Each attempt must hit the server fresh.
       const res = await fetch(url, {
         headers: { Accept: "application/json" },
-        next: { revalidate: 60 },
+        cache: "no-store",
       });
 
       if (res.status === 429) {
