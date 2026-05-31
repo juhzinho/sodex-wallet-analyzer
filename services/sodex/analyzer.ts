@@ -1,6 +1,5 @@
 import {
   fetchTrades,
-  fetchFundingHistory,
   fetchAccountState,
   fetchPositionHistory,
   fetchSpotTrades,
@@ -8,9 +7,9 @@ import {
 } from "./api";
 import {
   ApiTrade,
-  ApiFunding,
   ApiPositionHistory,
   ApiAccountState,
+  ApiFunding,
   WalletMetrics,
   SpotMetrics,
   ProcessedTrade,
@@ -482,29 +481,31 @@ export async function analyzeWallet(
 ): Promise<FullAnalysis> {
   _tradeCounter = 0;
 
-  // Sequential fetching — avoids hammering SoDEX API with parallel requests
-  // which dramatically increases code=-1 intermittent errors.
+  // Step 1: fetch perps trades first (heaviest — can have 50k+ fills).
+  // Running alone avoids hammering the API and causing code=-1 errors.
   const rawTrades = await fetchTrades(address, onProgress);
 
-  const rawPosHistory = await fetchPositionHistory(address, onProgress).catch((e) => {
-    console.error("[sodex] positions/history failed:", (e as Error).message);
-    return [] as ApiPositionHistory[];
-  });
+  // Step 2: fetch remaining endpoints in parallel — they are lighter and
+  // won't compete with trades pagination anymore.
+  // Funding is intentionally excluded: it can have thousands of records,
+  // adds significant latency, and is not critical for the main analysis.
+  const [rawPosHistory, state, rawSpotTrades] = await Promise.all([
+    fetchPositionHistory(address, onProgress).catch((e) => {
+      console.error("[sodex] positions/history failed:", (e as Error).message);
+      return [] as ApiPositionHistory[];
+    }),
+    fetchAccountState(address).catch((e) => {
+      console.error("[sodex] state failed:", (e as Error).message);
+      return null as ApiAccountState | null;
+    }),
+    fetchSpotTrades(address, onProgress).catch((e) => {
+      console.error("[sodex] spot trades failed:", (e as Error).message);
+      return [] as ApiTrade[];
+    }),
+  ]);
 
-  const rawFundings = await fetchFundingHistory(address, onProgress).catch((e) => {
-    console.error("[sodex] fundings failed:", (e as Error).message);
-    return [] as ApiFunding[];
-  });
-
-  const state = await fetchAccountState(address).catch((e) => {
-    console.error("[sodex] state failed:", (e as Error).message);
-    return null as ApiAccountState | null;
-  });
-
-  const rawSpotTrades = await fetchSpotTrades(address, onProgress).catch((e) => {
-    console.error("[sodex] spot trades failed:", (e as Error).message);
-    return [] as ApiTrade[];
-  });
+  // Funding removed — use empty array so downstream calculations stay intact
+  const rawFundings: ApiFunding[] = [];
 
   onProgress?.("Analisando dados...");
 
