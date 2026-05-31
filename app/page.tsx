@@ -4,24 +4,26 @@ function SoDEXLogo() {
   return (
     <div className="logo-3d-spin">
       <svg width="38" height="38" viewBox="0 0 100 100" fill="none" aria-label="SoDEX">
-        {/* Top face */}
-        <polygon points="50,8 88,28 50,48 12,28" fill="#2a2a2a" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" />
-        {/* Left face */}
-        <polygon points="12,28 50,48 50,92 12,72" fill="#1a1a1a" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" />
-        {/* Right face */}
-        <polygon points="88,28 50,48 50,92 88,72" fill="#222222" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" />
+        {/* Cube — top face */}
+        <polygon points="50,6 90,27 50,48 10,27" fill="#3a3a3a" />
+        {/* Cube — left face */}
+        <polygon points="10,27 50,48 50,94 10,73" fill="#2a2a2a" />
+        {/* Cube — right face */}
+        <polygon points="90,27 50,48 50,94 90,73" fill="#323232" />
 
-        {/* Inner geometric pattern — top face arrows */}
-        <polygon points="50,16 68,26 50,36 32,26" fill="#3a3a3a" stroke="#ffffff" strokeWidth="1.2" />
+        {/* White S shape — top bar */}
+        <rect x="30" y="18" width="30" height="10" rx="1" fill="white" />
+        {/* White S shape — top-left vertical */}
+        <rect x="30" y="18" width="10" height="20" rx="1" fill="white" />
+        {/* White S shape — middle bar */}
+        <rect x="30" y="38" width="30" height="10" rx="1" fill="white" />
+        {/* White S shape — bottom-right vertical */}
+        <rect x="50" y="38" width="10" height="20" rx="1" fill="white" />
+        {/* White S shape — bottom bar */}
+        <rect x="30" y="48" width="30" height="10" rx="1" fill="white" />
 
-        {/* Left face inner shape */}
-        <polygon points="20,38 38,48 38,72 20,62" fill="#252525" stroke="#ffffff" strokeWidth="1.2" />
-
-        {/* Right face inner shape */}
-        <polygon points="80,38 62,48 62,72 80,62" fill="#2e2e2e" stroke="#ffffff" strokeWidth="1.2" />
-
-        {/* Orange accent on right face */}
-        <polygon points="80,38 62,48 62,62 80,52" fill="#FF6B00" />
+        {/* Orange accent square */}
+        <rect x="60" y="28" width="10" height="10" fill="#E84532" />
       </svg>
     </div>
   );
