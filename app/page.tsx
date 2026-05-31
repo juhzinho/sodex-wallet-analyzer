@@ -4,28 +4,24 @@ function SoDEXLogo() {
   return (
     <div className="logo-3d-spin">
       <svg width="38" height="38" viewBox="0 0 100 100" fill="none" aria-label="SoDEX">
-        <defs>
-          <linearGradient id="cube-top" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#e0e0e0" />
-            <stop offset="100%" stopColor="#a0a0a0" />
-          </linearGradient>
-          <linearGradient id="cube-left" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#555" />
-            <stop offset="100%" stopColor="#888" />
-          </linearGradient>
-          <linearGradient id="cube-right" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#777" />
-            <stop offset="100%" stopColor="#444" />
-          </linearGradient>
-        </defs>
         {/* Top face */}
-        <polygon points="50,10 85,30 50,50 15,30" fill="url(#cube-top)" />
+        <polygon points="50,8 88,28 50,48 12,28" fill="#2a2a2a" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" />
         {/* Left face */}
-        <polygon points="15,30 50,50 50,90 15,70" fill="url(#cube-left)" />
+        <polygon points="12,28 50,48 50,92 12,72" fill="#1a1a1a" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" />
         {/* Right face */}
-        <polygon points="85,30 50,50 50,90 85,70" fill="url(#cube-right)" />
-        {/* Orange accent square on right face */}
-        <polygon points="68,52 80,46 80,58 68,64" fill="#FF6B00" />
+        <polygon points="88,28 50,48 50,92 88,72" fill="#222222" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" />
+
+        {/* Inner geometric pattern — top face arrows */}
+        <polygon points="50,16 68,26 50,36 32,26" fill="#3a3a3a" stroke="#ffffff" strokeWidth="1.2" />
+
+        {/* Left face inner shape */}
+        <polygon points="20,38 38,48 38,72 20,62" fill="#252525" stroke="#ffffff" strokeWidth="1.2" />
+
+        {/* Right face inner shape */}
+        <polygon points="80,38 62,48 62,72 80,62" fill="#2e2e2e" stroke="#ffffff" strokeWidth="1.2" />
+
+        {/* Orange accent on right face */}
+        <polygon points="80,38 62,48 62,62 80,52" fill="#FF6B00" />
       </svg>
     </div>
   );
