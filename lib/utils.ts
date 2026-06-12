@@ -39,3 +39,29 @@ export function normaliseTimestamp(ts: number): number {
   if (ts > 0 && ts < 1e12) return ts * 1000;
   return ts;
 }
+
+// ─── Weekly campaign reset (SoDEX snapshot) ──────────────────────────────
+// The campaign snapshots every Friday 21:00 BRT (UTC-3).
+// Friday 21:00 BRT === Saturday 00:00:00 UTC, so the reset moment is simply
+// the most recent Saturday 00:00 UTC. We work entirely in UTC internally.
+
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Timestamp (ms) of the most recent weekly reset at or before `nowMs`. */
+export function getLastWeeklyReset(nowMs: number = Date.now()): number {
+  const now = new Date(nowMs);
+  const dayUTC = now.getUTCDay(); // 0=Sun … 6=Sat
+  // Days elapsed since the last Saturday (Sat→0, Sun→1, … Fri→6)
+  const daysSinceSat = (dayUTC - 6 + 7) % 7;
+  return Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() - daysSinceSat,
+    0, 0, 0, 0
+  );
+}
+
+/** Timestamp (ms) of the next weekly reset strictly after `nowMs`. */
+export function getNextWeeklyReset(nowMs: number = Date.now()): number {
+  return getLastWeeklyReset(nowMs) + ONE_WEEK_MS;
+}

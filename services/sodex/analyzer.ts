@@ -19,7 +19,7 @@ import {
   LongShortData,
   FullAnalysis,
 } from "@/types";
-import { parseDecimal, normaliseTimestamp } from "@/lib/utils";
+import { parseDecimal, normaliseTimestamp, getLastWeeklyReset } from "@/lib/utils";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -197,11 +197,22 @@ function buildMetrics(
   let longTrades = 0;
   let shortTrades = 0;
 
+  // ── Time-windowed volume (campaign tracking) ──
+  // Weekly: since last Fri 21:00 BRT (= Sat 00:00 UTC) snapshot reset.
+  // Monthly: rolling last 30 days. All timestamps are ms UTC.
+  const now = Date.now();
+  const weekResetTs = getLastWeeklyReset(now);
+  const monthStartTs = now - 30 * 24 * 60 * 60 * 1000;
+  let weeklyVolume = 0;
+  let monthlyVolume = 0;
+
   for (const t of trades) {
     volume += t.volume;
     fees += t.fee;
     if (t.side === "LONG") { longVolume += t.volume; longTrades++; }
     else { shortVolume += t.volume; shortTrades++; }
+    if (t.timestamp >= weekResetTs) weeklyVolume += t.volume;
+    if (t.timestamp >= monthStartTs) monthlyVolume += t.volume;
   }
 
   // ── Funding ──
@@ -286,6 +297,8 @@ function buildMetrics(
   return {
     wallet,
     volume,
+    weeklyVolume,
+    monthlyVolume,
     fees,
     funding,
     realizedPnl,

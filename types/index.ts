@@ -257,6 +257,8 @@ export interface SoDEXEnvelope<T> {
 export interface WalletMetrics {
   wallet: string;
   volume: number;
+  weeklyVolume: number;   // since last Fri 21:00 BRT campaign reset
+  monthlyVolume: number;  // rolling last 30 days
   fees: number;
   funding: number;
   realizedPnl: number;

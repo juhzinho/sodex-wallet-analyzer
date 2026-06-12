@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FullAnalysis } from "@/types";
+import { getNextWeeklyReset } from "@/lib/utils";
 import MetricsCard from "./MetricsCard";
 import TradesTable from "./TradesTable";
 import PnlChart from "./charts/PnlChart";
@@ -59,7 +60,42 @@ const I = {
       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  Week: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  ),
+  Month: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 6v6l4 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
 };
+
+// Live countdown to the next weekly campaign reset (Fri 21:00 BRT).
+// Returns a string like "reseta em 3d 7h" (or "reseta em 5h 12m" when < 1 day).
+function useResetCountdown(): string {
+  const [label, setLabel] = useState("");
+
+  useEffect(() => {
+    const tick = () => {
+      const now = Date.now();
+      let diff = getNextWeeklyReset(now) - now;
+      if (diff < 0) diff = 0;
+      const days = Math.floor(diff / 86_400_000);
+      const hours = Math.floor((diff % 86_400_000) / 3_600_000);
+      const mins = Math.floor((diff % 3_600_000) / 60_000);
+      setLabel(days > 0 ? `reseta em ${days}d ${hours}h` : `reseta em ${hours}h ${mins}m`);
+    };
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  return label;
+}
 
 // ── Section header ─────────────────────────────────────────────────────────
 
@@ -156,6 +192,7 @@ interface Props { data: FullAnalysis; onReset: () => void }
 
 export default function Dashboard({ data, onReset }: Props) {
   const [tab, setTab] = useState<Tab>("perps");
+  const resetCountdown = useResetCountdown();
 
   const {
     metrics, processedTrades, chartData, marketData, longShortData,
@@ -220,6 +257,30 @@ export default function Dashboard({ data, onReset }: Props) {
       {/* ════════════════════════════════ PERPS TAB ════════════════════════════════ */}
       {tab === "perps" && <>
         <FadeUp index={2}>
+          <Section>Campaign Volume</Section>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <MetricsCard
+              index={0}
+              title="Volume Semanal"
+              rawValue={metrics.weeklyVolume}
+              displayValue={formatUsd(metrics.weeklyVolume, { compact: true })}
+              subValue={resetCountdown || "desde sex 21:00 BRT"}
+              trend="neutral"
+              icon={<I.Week />}
+            />
+            <MetricsCard
+              index={1}
+              title="Volume Mensal"
+              rawValue={metrics.monthlyVolume}
+              displayValue={formatUsd(metrics.monthlyVolume, { compact: true })}
+              subValue="últimos 30 dias"
+              trend="neutral"
+              icon={<I.Month />}
+            />
+          </div>
+        </FadeUp>
+
+        <FadeUp index={3}>
           <Section>Overview</Section>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
             <MetricsCard index={0} title="Volume"        rawValue={metrics.volume}            displayValue={formatUsd(metrics.volume, { compact: true })}                     subValue={`${metrics.trades.toLocaleString()} fills`}   trend="neutral"  icon={<I.Volume />} />
