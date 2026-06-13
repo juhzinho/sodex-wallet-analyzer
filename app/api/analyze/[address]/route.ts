@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { analyzeWallet } from "@/services/sodex/analyzer";
 import { isValidAddress } from "@/lib/utils";
+import { isLocale, Locale } from "@/lib/i18n";
 import { ProgressEvent } from "@/types";
 
 export const maxDuration = 120;
@@ -16,6 +17,8 @@ export async function GET(
   { params }: { params: Promise<{ address: string }> }
 ) {
   const { address } = await params;
+  const langParam = _req.nextUrl.searchParams.get("lang");
+  const locale: Locale = isLocale(langParam) ? langParam : "en";
 
   if (!address || !isValidAddress(address)) {
     return new Response(
@@ -41,7 +44,8 @@ export async function GET(
       try {
         const analysis = await analyzeWallet(
           address.toLowerCase(),
-          (message) => send({ type: "progress", message })
+          (message) => send({ type: "progress", message }),
+          locale
         );
         send({ type: "complete", data: analysis });
       } catch (err) {

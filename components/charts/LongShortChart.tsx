@@ -3,6 +3,7 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { LongShortData } from "@/types";
 import { formatUsd, formatPercent } from "@/lib/formatters";
+import { useI18n } from "../I18nProvider";
 
 const COLORS = { Long: "#FF6B00", Short: "#1A1A1A" };
 const BORDERS = { Long: "#FF8A33", Short: "rgba(255,107,0,0.30)" };
@@ -13,6 +14,7 @@ function CustomTooltip({ active, payload }: {
   active?: boolean;
   payload?: Array<{ payload: LongShortData }>;
 }) {
+  const { t } = useI18n();
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
@@ -20,15 +22,15 @@ function CustomTooltip({ active, payload }: {
       <p className="font-orbitron font-bold text-white text-[10px] tracking-wider mb-2">{d.name.toUpperCase()}</p>
       <div className="space-y-1">
         <div className="flex gap-4 justify-between">
-          <span className="text-white/40">Trades</span>
+          <span className="text-white/40">{t("tt.trades")}</span>
           <span className="font-mono text-white">{d.trades.toLocaleString()}</span>
         </div>
         <div className="flex gap-4 justify-between">
-          <span className="text-white/40">Volume</span>
+          <span className="text-white/40">{t("tt.volume")}</span>
           <span className="font-mono text-white">{formatUsd(d.volume, { compact: true })}</span>
         </div>
         <div className="flex gap-4 justify-between">
-          <span className="text-white/40">Share</span>
+          <span className="text-white/40">{t("tt.share")}</span>
           <span className="font-mono text-[#FF6B00]">{formatPercent(d.percentage)}</span>
         </div>
       </div>
@@ -37,9 +39,10 @@ function CustomTooltip({ active, payload }: {
 }
 
 export default function LongShortChart({ data }: Props) {
+  const { t } = useI18n();
   const hasData = data.some(d => d.trades > 0);
   if (!hasData) return (
-    <div className="flex items-center justify-center h-52 text-white/20 text-sm font-orbitron tracking-wider">NO DATA</div>
+    <div className="flex items-center justify-center h-52 text-white/20 text-sm font-orbitron tracking-wider">{t("chart.noData")}</div>
   );
 
   const total = data.reduce((s, d) => s + d.trades, 0);
@@ -67,7 +70,7 @@ export default function LongShortChart({ data }: Props) {
         {/* Centre label */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <p className="font-orbitron font-black text-2xl text-white">{total.toLocaleString()}</p>
-          <p className="text-[10px] font-orbitron tracking-widest text-white/30 uppercase">Trades</p>
+          <p className="text-[10px] font-orbitron tracking-widest text-white/30 uppercase">{t("tt.trades")}</p>
         </div>
       </div>
 

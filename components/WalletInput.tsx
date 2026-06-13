@@ -3,6 +3,8 @@
 import { useState, FormEvent, useEffect, useRef } from "react";
 import { isValidAddress } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { useI18n } from "./I18nProvider";
+import type { TranslationKey } from "@/lib/i18n";
 
 interface Props {
   onSubmit: (address: string) => void;
@@ -12,8 +14,9 @@ interface Props {
 const TYPED_ADDR = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F";
 
 export default function WalletInput({ onSubmit, isLoading }: Props) {
+  const { t } = useI18n();
   const [value, setValue]         = useState("");
-  const [error, setError]         = useState("");
+  const [error, setError]         = useState<TranslationKey | "">("");
   const [placeholder, setPlaceholder] = useState("0x");
   const btnRef = useRef<HTMLButtonElement>(null);
 
@@ -61,9 +64,9 @@ export default function WalletInput({ onSubmit, isLoading }: Props) {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const addr = value.trim();
-    if (!addr) { setError("Enter a wallet address to analyse."); return; }
+    if (!addr) { setError("input.errEmpty"); return; }
     if (!isValidAddress(addr)) {
-      setError("Invalid address — must be a 42-character 0x… hex string.");
+      setError("input.errInvalid");
       return;
     }
     setError("");
@@ -80,17 +83,16 @@ export default function WalletInput({ onSubmit, isLoading }: Props) {
       {/* Hero */}
       <div className="text-center mb-10">
         <h1 className="font-orbitron font-black text-4xl sm:text-5xl mb-4 leading-tight">
-          <span className="text-white">WALLET </span>
+          <span className="text-white">{t("hero.titlePrefix")}</span>
           <span
             className="shimmer-title glitch-wrap"
-            data-text="ANALYTICS"
+            data-text={t("hero.titleAccent")}
           >
-            ANALYTICS
+            {t("hero.titleAccent")}
           </span>
         </h1>
         <p className="text-white/35 text-sm max-w-md mx-auto leading-relaxed">
-          Paste any SoDEX wallet address to instantly visualise complete trading history —
-          PnL, volume, fees, win rate and more.
+          {t("hero.subtitle")}
         </p>
       </div>
 
@@ -130,7 +132,7 @@ export default function WalletInput({ onSubmit, isLoading }: Props) {
             onClick={paste}
             className="px-3 text-[10px] font-orbitron font-bold tracking-wider text-white/20 hover:text-[#FF6B00] transition-colors"
           >
-            PASTE
+            {t("input.paste")}
           </button>
 
           {value && (
@@ -170,20 +172,20 @@ export default function WalletInput({ onSubmit, isLoading }: Props) {
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/>
                   <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" className="opacity-75"/>
                 </svg>
-                SCANNING
+                {t("input.scanning")}
               </span>
             ) : (
-              "ANALYSE"
+              t("input.analyse")
             )}
           </button>
         </div>
 
-        {error && <p className="mt-2 text-xs text-red-400 pl-1 font-inter">{error}</p>}
+        {error && <p className="mt-2 text-xs text-red-400 pl-1 font-inter">{t(error)}</p>}
       </form>
 
-      {/* Feature pills */}
+      {/* Feature pills (PnL & Funding are standard crypto terms — kept as-is) */}
       <div className="mt-8 flex flex-wrap justify-center gap-2">
-        {["Volume", "PnL", "Win Rate", "Funding", "Fees", "Trades"].map((f) => (
+        {[t("pill.volume"), "PnL", t("pill.winRate"), "Funding", t("pill.fees"), t("pill.trades")].map((f) => (
           <span
             key={f}
             className="text-[10px] font-orbitron tracking-widest uppercase px-3 py-1 rounded-full border border-[rgba(255,107,0,0.15)] text-[rgba(255,107,0,0.50)] transition-colors hover:border-[rgba(255,107,0,0.35)] hover:text-[rgba(255,107,0,0.8)]"

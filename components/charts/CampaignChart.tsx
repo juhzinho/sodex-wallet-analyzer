@@ -5,6 +5,7 @@ import {
   Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { CampaignDayPoint } from "@/types";
+import { useI18n } from "../I18nProvider";
 
 interface Props { data: CampaignDayPoint[] }
 
@@ -13,12 +14,13 @@ function CustomTooltip({ active, payload, label }: {
   payload?: Array<{ value: number }>;
   label?: string;
 }) {
+  const { t } = useI18n();
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border border-[rgba(255,107,0,0.25)] bg-[#0A0A0A]/90 backdrop-blur p-3 shadow-xl text-xs">
       <p className="text-white/40 mb-2 font-orbitron text-[10px] tracking-wider">{label}</p>
       <div className="flex gap-4 justify-between">
-        <span className="text-white/50">Trades</span>
+        <span className="text-white/50">{t("tt.trades")}</span>
         <span className="text-[#FF6B00] font-bold font-mono">
           {(payload[0]?.value ?? 0).toLocaleString()}
         </span>
@@ -28,8 +30,9 @@ function CustomTooltip({ active, payload, label }: {
 }
 
 export default function CampaignChart({ data }: Props) {
+  const { t } = useI18n();
   if (!data.length) return (
-    <div className="flex items-center justify-center h-52 text-white/20 text-sm font-orbitron tracking-wider">NO DATA</div>
+    <div className="flex items-center justify-center h-52 text-white/20 text-sm font-orbitron tracking-wider">{t("chart.noData")}</div>
   );
 
   const maxTrades = Math.max(...data.map(d => d.trades));

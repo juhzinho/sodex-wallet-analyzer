@@ -1,9 +1,29 @@
+"use client";
+
+import { useI18n } from "./I18nProvider";
+import type { TranslationKey } from "@/lib/i18n";
+
 interface Props {
   message: string;
   onRetry?: () => void;
 }
 
+// Map canonical English server/stream messages to translation keys so the
+// displayed error follows the selected language. Unknown messages pass through.
+function messageKey(message: string): TranslationKey | null {
+  const m = message.toLowerCase();
+  if (m.includes("not found") || m.includes("no trading history")) return "error.notFound";
+  if (m.includes("invalid") && m.includes("address")) return "error.invalidAddress";
+  if (m.includes("connection") && m.includes("lost")) return "error.connectionLost";
+  if (m === "unknown error") return "error.unknown";
+  return null;
+}
+
 export default function ErrorState({ message, onRetry }: Props) {
+  const { t } = useI18n();
+  const key = messageKey(message);
+  const shown = key ? t(key) : message;
+
   return (
     <div className="mt-10 flex flex-col items-center justify-center text-center py-16">
       <div
@@ -23,10 +43,10 @@ export default function ErrorState({ message, onRetry }: Props) {
       </div>
 
       <h3 className="font-orbitron font-bold text-base text-white mb-2 tracking-wider uppercase">
-        Analysis Failed
+        {t("error.title")}
       </h3>
       <p className="text-white/40 text-sm max-w-md leading-relaxed mb-7 font-inter">
-        {message}
+        {shown}
       </p>
 
       {onRetry && (
@@ -35,7 +55,7 @@ export default function ErrorState({ message, onRetry }: Props) {
           className="px-6 py-2.5 rounded-lg font-orbitron font-bold text-xs tracking-widest uppercase text-black transition-all hover:shadow-glow"
           style={{ background: "linear-gradient(135deg, #FF8A33, #FF6B00)" }}
         >
-          Try Again
+          {t("error.retry")}
         </button>
       )}
     </div>

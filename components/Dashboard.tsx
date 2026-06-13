@@ -12,6 +12,7 @@ import VolumeChart from "./charts/VolumeChart";
 import LongShortChart from "./charts/LongShortChart";
 import VolumeByMarketChart from "./charts/VolumeByMarketChart";
 import CampaignChart from "./charts/CampaignChart";
+import { useI18n } from "./I18nProvider";
 import { formatUsd, formatPercent, formatDate, formatDuration } from "@/lib/formatters";
 
 // Each dashboard section fades + slides up with a staggered delay
@@ -98,6 +99,7 @@ const I = {
 // Live countdown to the next weekly campaign reset (Fri 21:00 BRT).
 // Returns a string like "reseta em 3d 7h" (or "reseta em 5h 12m" when < 1 day).
 function useResetCountdown(): string {
+  const { t } = useI18n();
   const [label, setLabel] = useState("");
 
   useEffect(() => {
@@ -108,12 +110,16 @@ function useResetCountdown(): string {
       const days = Math.floor(diff / 86_400_000);
       const hours = Math.floor((diff % 86_400_000) / 3_600_000);
       const mins = Math.floor((diff % 3_600_000) / 60_000);
-      setLabel(days > 0 ? `reseta em ${days}d ${hours}h` : `reseta em ${hours}h ${mins}m`);
+      setLabel(
+        days > 0
+          ? t("reset.days", { d: days, h: hours })
+          : t("reset.hours", { h: hours, m: mins })
+      );
     };
     tick();
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [t]);
 
   return label;
 }
@@ -212,6 +218,7 @@ function TabBar({ active, onChange, counts }: {
 interface Props { data: FullAnalysis; onReset: () => void }
 
 export default function Dashboard({ data, onReset }: Props) {
+  const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("perps");
   const resetCountdown = useResetCountdown();
 
@@ -245,10 +252,10 @@ export default function Dashboard({ data, onReset }: Props) {
             {metrics.wallet.slice(2, 4).toUpperCase()}
           </div>
           <div>
-            <p className="text-[10px] font-orbitron tracking-widest text-white/25 uppercase mb-1">Analysing Wallet</p>
+            <p className="text-[10px] font-orbitron tracking-widest text-white/25 uppercase mb-1">{t("dash.analysing")}</p>
             <p className="font-mono text-white text-sm break-all">{metrics.wallet}</p>
             <p className="text-[11px] text-white/25 mt-0.5">
-              {totalTrades.toLocaleString()} trades total &nbsp;·&nbsp; fetched {formatDate(data.fetchedAt)}
+              {t("dash.tradesTotal", { n: totalTrades.toLocaleString() })} &nbsp;·&nbsp; {t("dash.fetched", { date: formatDate(data.fetchedAt) })}
             </p>
           </div>
         </div>
@@ -259,7 +266,7 @@ export default function Dashboard({ data, onReset }: Props) {
           onMouseEnter={e => { e.currentTarget.style.color = "#FF6B00"; e.currentTarget.style.borderColor = "rgba(255,107,0,0.4)"; }}
           onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.4)"; e.currentTarget.style.borderColor = "rgba(255,107,0,0.18)"; }}
         >
-          ← New Search
+          {t("dash.newSearch")}
         </button>
       </FadeUp>
 
@@ -279,32 +286,32 @@ export default function Dashboard({ data, onReset }: Props) {
       {/* ════════════════════════════════ PERPS TAB ════════════════════════════════ */}
       {tab === "perps" && <>
         <FadeUp index={2}>
-          <Section>Campaign Volume</Section>
+          <Section>{t("section.campaignVolume")}</Section>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <MetricsCard
               index={0}
-              title="Volume Semanal"
+              title={t("card.weeklyVolume")}
               rawValue={metrics.weeklyVolume}
               displayValue={formatUsd(metrics.weeklyVolume, { compact: true })}
-              subValue={resetCountdown || "desde sex 21:00 BRT"}
+              subValue={resetCountdown || t("card.weeklySince")}
               trend="neutral"
               icon={<I.Week />}
             />
             <MetricsCard
               index={1}
-              title="Volume Mensal"
+              title={t("card.monthlyVolume")}
               rawValue={metrics.monthlyVolume}
               displayValue={formatUsd(metrics.monthlyVolume, { compact: true })}
-              subValue="últimos 30 dias"
+              subValue={t("card.monthlyLast30")}
               trend="neutral"
               icon={<I.Month />}
             />
             <MetricsCard
               index={2}
-              title="Trades Hoje"
+              title={t("card.tradesToday")}
               rawValue={metrics.tradesToday}
               displayValue={metrics.tradesToday.toLocaleString()}
-              subValue="dia de campanha (21:00 BRT)"
+              subValue={t("card.tradesTodaySub")}
               trend="neutral"
               icon={<I.Today />}
             />
@@ -312,57 +319,57 @@ export default function Dashboard({ data, onReset }: Props) {
         </FadeUp>
 
         <FadeUp index={3}>
-          <Section>Overview</Section>
+          <Section>{t("section.overview")}</Section>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
-            <MetricsCard index={0} title="Volume"        rawValue={metrics.volume}            displayValue={formatUsd(metrics.volume, { compact: true })}                     subValue={`${metrics.trades.toLocaleString()} fills`}   trend="neutral"  icon={<I.Volume />} />
-            <MetricsCard index={1} title="Realised PnL"  rawValue={metrics.realizedPnl}       displayValue={formatUsd(metrics.realizedPnl, { compact: true, signed: true })}  subValue={`Net: ${formatUsd(metrics.netPnl, { compact: true, signed: true })}`} trend={pnlTrend} icon={<I.Pnl />} />
-            <MetricsCard index={2} title="Unrealised PnL" rawValue={metrics.unrealizedPnl}    displayValue={formatUsd(metrics.unrealizedPnl, { compact: true, signed: true })} subValue="Open positions" trend={uPnlTrend} icon={<I.Pnl />} />
-            <MetricsCard index={3} title="Fees"          rawValue={metrics.fees}              displayValue={formatUsd(metrics.fees, { compact: true })}                       subValue="Maker + taker"  trend="negative" icon={<I.Fee />} />
-            <MetricsCard index={4} title="Funding"       rawValue={Math.abs(metrics.funding)} displayValue={formatUsd(metrics.funding, { compact: true, signed: true })}      subValue={metrics.funding >= 0 ? "Received" : "Paid"} trend={fundTrend} icon={<I.Funding />} />
-            <MetricsCard index={5} title="Win Rate"      rawValue={metrics.winRate}           displayValue={formatPercent(metrics.winRate)}                                    subValue={`${metrics.winningPositions}W / ${metrics.losingPositions}L`} trend={wrTrend} icon={<I.WinRate />} />
+            <MetricsCard index={0} title={t("card.volume")}        rawValue={metrics.volume}            displayValue={formatUsd(metrics.volume, { compact: true })}                     subValue={t("card.volumeSub", { n: metrics.trades.toLocaleString() })}   trend="neutral"  icon={<I.Volume />} />
+            <MetricsCard index={1} title={t("card.realisedPnl")}  rawValue={metrics.realizedPnl}       displayValue={formatUsd(metrics.realizedPnl, { compact: true, signed: true })}  subValue={t("card.realisedPnlSub", { v: formatUsd(metrics.netPnl, { compact: true, signed: true }) })} trend={pnlTrend} icon={<I.Pnl />} />
+            <MetricsCard index={2} title={t("card.unrealisedPnl")} rawValue={metrics.unrealizedPnl}    displayValue={formatUsd(metrics.unrealizedPnl, { compact: true, signed: true })} subValue={t("card.unrealisedPnlSub")} trend={uPnlTrend} icon={<I.Pnl />} />
+            <MetricsCard index={3} title={t("card.fees")}          rawValue={metrics.fees}              displayValue={formatUsd(metrics.fees, { compact: true })}                       subValue={t("card.feesSub")}  trend="negative" icon={<I.Fee />} />
+            <MetricsCard index={4} title={t("card.funding")}       rawValue={Math.abs(metrics.funding)} displayValue={formatUsd(metrics.funding, { compact: true, signed: true })}      subValue={metrics.funding >= 0 ? t("card.received") : t("card.paid")} trend={fundTrend} icon={<I.Funding />} />
+            <MetricsCard index={5} title={t("card.winRate")}      rawValue={metrics.winRate}           displayValue={formatPercent(metrics.winRate)}                                    subValue={t("card.winRateSub", { w: metrics.winningPositions, l: metrics.losingPositions })} trend={wrTrend} icon={<I.WinRate />} />
           </div>
         </FadeUp>
 
         <FadeUp index={4} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="glass-card p-5">
-            <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">Performance</p>
-            <StatRow label="Best Trade"  value={formatUsd(metrics.bestTrade,   { signed: true })} color="#22c55e" />
-            <StatRow label="Worst Trade" value={formatUsd(metrics.worstTrade,  { signed: true })} color="#ef4444" />
-            <StatRow label="Avg Win"     value={formatUsd(metrics.averageWin,  { signed: true })} color="#22c55e" />
-            <StatRow label="Avg Loss"    value={formatUsd(metrics.averageLoss, { signed: true })} color="#ef4444" />
+            <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">{t("stat.performance")}</p>
+            <StatRow label={t("stat.bestTrade")}  value={formatUsd(metrics.bestTrade,   { signed: true })} color="#22c55e" />
+            <StatRow label={t("stat.worstTrade")} value={formatUsd(metrics.worstTrade,  { signed: true })} color="#ef4444" />
+            <StatRow label={t("stat.avgWin")}     value={formatUsd(metrics.averageWin,  { signed: true })} color="#22c55e" />
+            <StatRow label={t("stat.avgLoss")}    value={formatUsd(metrics.averageLoss, { signed: true })} color="#ef4444" />
           </div>
           <div className="glass-card p-5">
-            <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">Trade Stats</p>
-            <StatRow label="Total Fills" value={metrics.trades.toLocaleString()} />
-            <StatRow label="Win Rate"    value={formatPercent(metrics.winRate)} color={metrics.winRate >= 50 ? "#22c55e" : "#ef4444"} />
-            <StatRow label="Loss Rate"   value={formatPercent(metrics.lossRate)} />
-            <StatRow label="Positions"   value={metrics.totalPositions.toLocaleString()} />
+            <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">{t("stat.tradeStats")}</p>
+            <StatRow label={t("stat.totalFills")} value={metrics.trades.toLocaleString()} />
+            <StatRow label={t("card.winRate")}    value={formatPercent(metrics.winRate)} color={metrics.winRate >= 50 ? "#22c55e" : "#ef4444"} />
+            <StatRow label={t("stat.lossRate")}   value={formatPercent(metrics.lossRate)} />
+            <StatRow label={t("stat.positions")}   value={metrics.totalPositions.toLocaleString()} />
           </div>
           <div className="glass-card p-5">
-            <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">Direction</p>
-            <StatRow label="Long Volume"  value={formatUsd(metrics.longVolume,  { compact: true })} color="#FF6B00" />
-            <StatRow label="Short Volume" value={formatUsd(metrics.shortVolume, { compact: true })} color="#9CA3AF" />
-            <StatRow label="Long Fills"   value={metrics.longTrades.toLocaleString()}  color="#FF6B00" />
-            <StatRow label="Short Fills"  value={metrics.shortTrades.toLocaleString()} />
+            <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">{t("stat.direction")}</p>
+            <StatRow label={t("stat.longVolume")}  value={formatUsd(metrics.longVolume,  { compact: true })} color="#FF6B00" />
+            <StatRow label={t("stat.shortVolume")} value={formatUsd(metrics.shortVolume, { compact: true })} color="#9CA3AF" />
+            <StatRow label={t("stat.longFills")}   value={metrics.longTrades.toLocaleString()}  color="#FF6B00" />
+            <StatRow label={t("stat.shortFills")}  value={metrics.shortTrades.toLocaleString()} />
           </div>
           <div className="glass-card p-5">
-            <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">P&L Breakdown</p>
-            <StatRow label="Realised"   value={formatUsd(metrics.realizedPnl,   { signed: true })} color={metrics.realizedPnl   >= 0 ? "#22c55e" : "#ef4444"} />
-            <StatRow label="Unrealised" value={formatUsd(metrics.unrealizedPnl, { signed: true })} color={metrics.unrealizedPnl >= 0 ? "#22c55e" : "#ef4444"} />
-            <StatRow label="Funding"    value={formatUsd(metrics.funding,        { signed: true })} color={metrics.funding        >= 0 ? "#22c55e" : "#ef4444"} />
-            <StatRow label="Net PnL"    value={formatUsd(metrics.netPnl,         { signed: true })} color={metrics.netPnl         >= 0 ? "#FF6B00" : "#ef4444"} />
+            <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">{t("stat.pnlBreakdown")}</p>
+            <StatRow label={t("stat.realised")}   value={formatUsd(metrics.realizedPnl,   { signed: true })} color={metrics.realizedPnl   >= 0 ? "#22c55e" : "#ef4444"} />
+            <StatRow label={t("stat.unrealised")} value={formatUsd(metrics.unrealizedPnl, { signed: true })} color={metrics.unrealizedPnl >= 0 ? "#22c55e" : "#ef4444"} />
+            <StatRow label={t("card.funding")}    value={formatUsd(metrics.funding,        { signed: true })} color={metrics.funding        >= 0 ? "#22c55e" : "#ef4444"} />
+            <StatRow label={t("stat.netPnl")}    value={formatUsd(metrics.netPnl,         { signed: true })} color={metrics.netPnl         >= 0 ? "#FF6B00" : "#ef4444"} />
           </div>
         </FadeUp>
 
         <FadeUp index={5}>
-          <Section>Open Positions & Campaign</Section>
+          <Section>{t("section.openCampaign")}</Section>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <MetricsCard
               index={0}
-              title="Open Interest"
+              title={t("card.openInterest")}
               rawValue={metrics.openInterest}
               displayValue={formatUsd(metrics.openInterest, { compact: true })}
-              subValue={`${metrics.openPositionsCount} open position${metrics.openPositionsCount === 1 ? "" : "s"}`}
+              subValue={t("card.openInterestSub", { n: metrics.openPositionsCount })}
               trend="neutral"
               icon={<I.OI />}
             />
@@ -370,48 +377,48 @@ export default function Dashboard({ data, onReset }: Props) {
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-[#FF6B00]"><I.Duration /></span>
                 <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)]">
-                  Position Duration
+                  {t("card.positionDuration")}
                 </p>
               </div>
-              <StatRow label="Média"    value={formatDuration(metrics.avgPositionDuration)} />
-              <StatRow label="Mediana"  value={formatDuration(metrics.medianPositionDuration)} />
-              <StatRow label="Mais curta" value={formatDuration(metrics.shortestPositionDuration)} color="#22c55e" />
-              <StatRow label="Mais longa" value={formatDuration(metrics.longestPositionDuration)} color="#FF6B00" />
+              <StatRow label={t("dur.average")}  value={formatDuration(metrics.avgPositionDuration)} />
+              <StatRow label={t("dur.median")}   value={formatDuration(metrics.medianPositionDuration)} />
+              <StatRow label={t("dur.shortest")} value={formatDuration(metrics.shortestPositionDuration)} color="#22c55e" />
+              <StatRow label={t("dur.longest")}  value={formatDuration(metrics.longestPositionDuration)} color="#FF6B00" />
             </div>
-            <ChartCard title="Trades por dia" subtitle="Últimos 14 dias de campanha (21:00 BRT)">
+            <ChartCard title={t("chart.tradesPerDay")} subtitle={t("chart.tradesPerDaySub")}>
               <CampaignChart data={campaignDaily} />
             </ChartCard>
           </div>
         </FadeUp>
 
         <FadeUp index={6}>
-          <Section>Charts</Section>
+          <Section>{t("section.charts")}</Section>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <ChartCard title="Cumulative PnL" subtitle="Realised PnL + funding" className="lg:col-span-2">
+            <ChartCard title={t("chart.cumPnl")} subtitle={t("chart.cumPnlSub")} className="lg:col-span-2">
               <PnlChart data={chartData} />
             </ChartCard>
-            <ChartCard title="Long vs Short" subtitle="Trade count">
+            <ChartCard title={t("chart.longVsShort")} subtitle={t("chart.tradeCount")}>
               <LongShortChart data={longShortData} />
             </ChartCard>
           </div>
         </FadeUp>
 
         <FadeUp index={7} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartCard title="Daily Volume" subtitle="Perps notional volume">
+          <ChartCard title={t("chart.dailyVolume")} subtitle={t("chart.dailyVolumeSub")}>
             <VolumeChart data={chartData} />
           </ChartCard>
-          <ChartCard title="Volume by Market" subtitle="Top 8 markets">
+          <ChartCard title={t("chart.volumeByMarket")} subtitle={t("chart.top8")}>
             <VolumeByMarketChart data={marketData} />
           </ChartCard>
         </FadeUp>
 
         <FadeUp index={8}>
-          <Section>Positions</Section>
+          <Section>{t("section.positions")}</Section>
           <PositionsTable positions={historyPositions} />
         </FadeUp>
 
         <FadeUp index={9}>
-          <Section>Trade History</Section>
+          <Section>{t("section.tradeHistory")}</Section>
           <TradesTable trades={processedTrades} />
         </FadeUp>
       </>}
@@ -420,32 +427,32 @@ export default function Dashboard({ data, onReset }: Props) {
       {/* ════════════════════════════════ SPOT TAB ════════════════════════════════ */}
       {tab === "spot" && <>
         <FadeUp index={2}>
-          <Section>Spot Overview</Section>
+          <Section>{t("section.spotOverview")}</Section>
           {spotMetrics.trades === 0 ? (
             <div className="glass-card p-10 text-center">
-              <p className="text-white/25 text-sm font-orbitron tracking-widest uppercase">No spot trades found for this wallet</p>
+              <p className="text-white/25 text-sm font-orbitron tracking-widest uppercase">{t("spot.noTrades")}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <MetricsCard index={0} title="Spot Volume" rawValue={spotMetrics.volume} displayValue={formatUsd(spotMetrics.volume, { compact: true })} subValue={`${spotMetrics.trades.toLocaleString()} trades`} trend="neutral"  icon={<I.Volume />} />
-              <MetricsCard index={1} title="Spot Fees"   rawValue={spotMetrics.fees}   displayValue={formatUsd(spotMetrics.fees,   { compact: true })} subValue="Maker + taker"                                   trend="negative" icon={<I.Fee />} />
-              <MetricsCard index={2} title="Buy Volume"  rawValue={spotMetrics.longVolume}  displayValue={formatUsd(spotMetrics.longVolume,  { compact: true })} subValue={`${spotMetrics.longTrades.toLocaleString()} buys`}  trend="positive" icon={<I.Volume />} />
-              <MetricsCard index={3} title="Sell Volume" rawValue={spotMetrics.shortVolume} displayValue={formatUsd(spotMetrics.shortVolume, { compact: true })} subValue={`${spotMetrics.shortTrades.toLocaleString()} sells`} trend="negative" icon={<I.Volume />} />
+              <MetricsCard index={0} title={t("card.spotVolume")} rawValue={spotMetrics.volume} displayValue={formatUsd(spotMetrics.volume, { compact: true })} subValue={t("card.tradesN", { n: spotMetrics.trades.toLocaleString() })} trend="neutral"  icon={<I.Volume />} />
+              <MetricsCard index={1} title={t("card.spotFees")}   rawValue={spotMetrics.fees}   displayValue={formatUsd(spotMetrics.fees,   { compact: true })} subValue={t("card.feesSub")}                                   trend="negative" icon={<I.Fee />} />
+              <MetricsCard index={2} title={t("card.buyVolume")}  rawValue={spotMetrics.longVolume}  displayValue={formatUsd(spotMetrics.longVolume,  { compact: true })} subValue={t("card.buysN", { n: spotMetrics.longTrades.toLocaleString() })}  trend="positive" icon={<I.Volume />} />
+              <MetricsCard index={3} title={t("card.sellVolume")} rawValue={spotMetrics.shortVolume} displayValue={formatUsd(spotMetrics.shortVolume, { compact: true })} subValue={t("card.sellsN", { n: spotMetrics.shortTrades.toLocaleString() })} trend="negative" icon={<I.Volume />} />
             </div>
           )}
         </FadeUp>
 
         {spotMetrics.trades > 0 && <>
           <FadeUp index={3} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <ChartCard title="Volume by Market" subtitle="Top 8 spot markets">
+            <ChartCard title={t("chart.volumeByMarket")} subtitle={t("chart.top8Spot")}>
               <VolumeByMarketChart data={spotMarketData} />
             </ChartCard>
-            <ChartCard title="Buy vs Sell" subtitle="Trade count distribution">
+            <ChartCard title={t("chart.buyVsSell")} subtitle={t("chart.buyVsSellSub")}>
               <LongShortChart data={spotLongShortData} />
             </ChartCard>
           </FadeUp>
           <FadeUp index={4}>
-            <Section>Spot Trade History</Section>
+            <Section>{t("section.spotTradeHistory")}</Section>
             <TradesTable trades={spotTrades} />
           </FadeUp>
         </>}
@@ -454,11 +461,11 @@ export default function Dashboard({ data, onReset }: Props) {
       {/* ════════════════════════════════ TOTAL TAB ════════════════════════════════ */}
       {tab === "total" && <>
         <FadeUp index={2}>
-          <Section>Combined Overview</Section>
+          <Section>{t("section.combinedOverview")}</Section>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            <MetricsCard index={0} title="Total Volume" rawValue={totalVolume} displayValue={formatUsd(totalVolume, { compact: true })} subValue={`${totalTrades.toLocaleString()} total trades`} trend="neutral"  icon={<I.Volume />} />
-            <MetricsCard index={1} title="Total Fees"   rawValue={totalFees}   displayValue={formatUsd(totalFees,   { compact: true })} subValue="Perps + Spot"                                    trend="negative" icon={<I.Fee />} />
-            <MetricsCard index={2} title="Realised PnL" rawValue={metrics.realizedPnl} displayValue={formatUsd(metrics.realizedPnl, { compact: true, signed: true })} subValue="Perps only" trend={pnlTrend} icon={<I.Pnl />} />
+            <MetricsCard index={0} title={t("card.totalVolume")} rawValue={totalVolume} displayValue={formatUsd(totalVolume, { compact: true })} subValue={t("card.totalTradesN", { n: totalTrades.toLocaleString() })} trend="neutral"  icon={<I.Volume />} />
+            <MetricsCard index={1} title={t("card.totalFees")}   rawValue={totalFees}   displayValue={formatUsd(totalFees,   { compact: true })} subValue={t("card.perpsPlusSpot")}                                    trend="negative" icon={<I.Fee />} />
+            <MetricsCard index={2} title={t("card.realisedPnl")} rawValue={metrics.realizedPnl} displayValue={formatUsd(metrics.realizedPnl, { compact: true, signed: true })} subValue={t("card.perpsOnly")} trend={pnlTrend} icon={<I.Pnl />} />
           </div>
         </FadeUp>
 
@@ -466,35 +473,35 @@ export default function Dashboard({ data, onReset }: Props) {
           {/* Perps breakdown */}
           <div className="glass-card p-5">
             <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">
-              Perps
+              {t("panel.perps")}
             </p>
-            <StatRow label="Volume" value={formatUsd(metrics.volume, { compact: true })} />
-            <StatRow label="Fees"   value={formatUsd(metrics.fees,   { compact: true })} color="#ef4444" />
-            <StatRow label="Trades" value={metrics.trades.toLocaleString()} />
-            <StatRow label="Win Rate" value={formatPercent(metrics.winRate)} color={metrics.winRate >= 50 ? "#22c55e" : "#ef4444"} />
-            <StatRow label="Net PnL"  value={formatUsd(metrics.netPnl, { signed: true })} color={metrics.netPnl >= 0 ? "#FF6B00" : "#ef4444"} />
+            <StatRow label={t("row.volume")} value={formatUsd(metrics.volume, { compact: true })} />
+            <StatRow label={t("row.fees")}   value={formatUsd(metrics.fees,   { compact: true })} color="#ef4444" />
+            <StatRow label={t("row.trades")} value={metrics.trades.toLocaleString()} />
+            <StatRow label={t("row.winRate")} value={formatPercent(metrics.winRate)} color={metrics.winRate >= 50 ? "#22c55e" : "#ef4444"} />
+            <StatRow label={t("row.netPnl")}  value={formatUsd(metrics.netPnl, { signed: true })} color={metrics.netPnl >= 0 ? "#FF6B00" : "#ef4444"} />
           </div>
 
           {/* Spot breakdown */}
           <div className="glass-card p-5">
-            <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">Spot</p>
-            <StatRow label="Volume" value={formatUsd(spotMetrics.volume, { compact: true })} />
-            <StatRow label="Fees"   value={formatUsd(spotMetrics.fees,   { compact: true })} color="#ef4444" />
-            <StatRow label="Trades" value={spotMetrics.trades.toLocaleString()} />
-            <StatRow label="Buy Vol"  value={formatUsd(spotMetrics.longVolume,  { compact: true })} color="#FF6B00" />
-            <StatRow label="Sell Vol" value={formatUsd(spotMetrics.shortVolume, { compact: true })} />
+            <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">{t("panel.spot")}</p>
+            <StatRow label={t("row.volume")} value={formatUsd(spotMetrics.volume, { compact: true })} />
+            <StatRow label={t("row.fees")}   value={formatUsd(spotMetrics.fees,   { compact: true })} color="#ef4444" />
+            <StatRow label={t("row.trades")} value={spotMetrics.trades.toLocaleString()} />
+            <StatRow label={t("row.buyVol")}  value={formatUsd(spotMetrics.longVolume,  { compact: true })} color="#FF6B00" />
+            <StatRow label={t("row.sellVol")} value={formatUsd(spotMetrics.shortVolume, { compact: true })} />
           </div>
 
           {/* Combined */}
           <div className="glass-card p-5" style={{ border: "1px solid rgba(255,107,0,0.3)", boxShadow: "0 0 20px rgba(255,107,0,0.08)" }}>
             <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.8)] mb-3">
-              Combined
+              {t("panel.combined")}
             </p>
-            <StatRow label="Total Volume" value={formatUsd(totalVolume, { compact: true })} color="#FF6B00" />
-            <StatRow label="Total Fees"   value={formatUsd(totalFees,   { compact: true })} color="#ef4444" />
-            <StatRow label="Total Trades" value={totalTrades.toLocaleString()} color="#FF6B00" />
-            <StatRow label="Perps Share"  value={formatPercent(totalVolume > 0 ? (metrics.volume / totalVolume) * 100 : 0)} />
-            <StatRow label="Spot Share"   value={formatPercent(totalVolume > 0 ? (spotMetrics.volume / totalVolume) * 100 : 0)} />
+            <StatRow label={t("row.totalVolume")} value={formatUsd(totalVolume, { compact: true })} color="#FF6B00" />
+            <StatRow label={t("row.totalFees")}   value={formatUsd(totalFees,   { compact: true })} color="#ef4444" />
+            <StatRow label={t("row.totalTrades")} value={totalTrades.toLocaleString()} color="#FF6B00" />
+            <StatRow label={t("row.perpsShare")}  value={formatPercent(totalVolume > 0 ? (metrics.volume / totalVolume) * 100 : 0)} />
+            <StatRow label={t("row.spotShare")}   value={formatPercent(totalVolume > 0 ? (spotMetrics.volume / totalVolume) * 100 : 0)} />
           </div>
         </FadeUp>
       </>}

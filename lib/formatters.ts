@@ -1,3 +1,20 @@
+// ─── Locale-aware formatting ──────────────────────────────────────────────
+// A module-level locale tag (BCP-47) drives number/date grouping & separators.
+// The I18nProvider calls setFormatterLocale() whenever the language changes.
+// Values stay USD ($); only digit grouping / decimal separators localise.
+let _locale = "en-US";
+
+export function setFormatterLocale(locale: string): void {
+  _locale = locale || "en-US";
+}
+
+function localeNum(value: number, min: number, max: number): string {
+  return value.toLocaleString(_locale, {
+    minimumFractionDigits: min,
+    maximumFractionDigits: max,
+  });
+}
+
 export function formatUsd(
   value: number,
   opts: { compact?: boolean; signed?: boolean; decimals?: number } = {}
@@ -8,32 +25,26 @@ export function formatUsd(
 
   if (compact) {
     if (abs >= 1_000_000_000)
-      return `${sign}$${(abs / 1_000_000_000).toFixed(2)}B`;
-    if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
-    if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(2)}K`;
+      return `${sign}$${localeNum(abs / 1_000_000_000, 2, 2)}B`;
+    if (abs >= 1_000_000) return `${sign}$${localeNum(abs / 1_000_000, 2, 2)}M`;
+    if (abs >= 1_000) return `${sign}$${localeNum(abs / 1_000, 2, 2)}K`;
   }
 
   const d = decimals ?? (abs < 0.01 ? 6 : abs < 1 ? 4 : 2);
-  return `${sign}$${abs.toLocaleString("en-US", {
-    minimumFractionDigits: d,
-    maximumFractionDigits: d,
-  })}`;
+  return `${sign}$${localeNum(abs, d, d)}`;
 }
 
 export function formatPercent(value: number, signed = false): string {
   const sign = value < 0 ? "" : signed ? "+" : "";
-  return `${sign}${value.toFixed(2)}%`;
+  return `${sign}${localeNum(value, 2, 2)}%`;
 }
 
 export function formatNumber(value: number, decimals = 4): string {
-  return value.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: decimals,
-  });
+  return localeNum(value, 0, decimals);
 }
 
 export function formatDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleDateString("en-US", {
+  return new Date(timestamp).toLocaleDateString(_locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -41,7 +52,7 @@ export function formatDate(timestamp: number): string {
 }
 
 export function formatDateTime(timestamp: number): string {
-  return new Date(timestamp).toLocaleString("en-US", {
+  return new Date(timestamp).toLocaleString(_locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -52,7 +63,7 @@ export function formatDateTime(timestamp: number): string {
 }
 
 export function formatDateShort(timestamp: number): string {
-  return new Date(timestamp).toLocaleDateString("en-US", {
+  return new Date(timestamp).toLocaleDateString(_locale, {
     month: "short",
     day: "numeric",
   });

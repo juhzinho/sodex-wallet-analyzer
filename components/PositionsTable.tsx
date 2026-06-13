@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HistoryPosition } from "@/types";
 import { formatUsd, formatDateTime, formatNumber, formatDuration } from "@/lib/formatters";
+import { useI18n } from "./I18nProvider";
 
 interface Props { positions: HistoryPosition[] }
 
@@ -12,6 +13,7 @@ type SortDir  = "asc" | "desc";
 const PAGE = 20;
 
 export default function PositionsTable({ positions }: Props) {
+  const { t } = useI18n();
   const [page, setPage]       = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("closeTimestamp");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -59,15 +61,15 @@ export default function PositionsTable({ positions }: Props) {
       <div className="px-5 py-4 border-b border-[rgba(255,107,0,0.08)] flex flex-wrap items-center gap-3 justify-between">
         <div>
           <h3 className="text-xs font-orbitron font-bold tracking-widest uppercase text-white/70">
-            Positions
+            {t("table.positions")}
           </h3>
-          <p className="text-[11px] text-white/25 mt-0.5">{sorted.length.toLocaleString()} closed positions</p>
+          <p className="text-[11px] text-white/25 mt-0.5">{t("table.positionsClosed", { n: sorted.length.toLocaleString() })}</p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           <input
             type="text"
-            placeholder="Filter symbol…"
+            placeholder={t("table.filterSymbol")}
             value={filter}
             onChange={e => { setFilter(e.target.value); setPage(0); }}
             className="px-3 py-1.5 rounded-lg text-sm text-white placeholder-white/20 outline-none w-36"
@@ -95,7 +97,7 @@ export default function PositionsTable({ positions }: Props) {
                     : "rgba(255,255,255,0.22)",
                 }}
               >
-                {s || "ALL"}
+                {s || t("table.all")}
               </button>
             ))}
           </div>
@@ -107,14 +109,14 @@ export default function PositionsTable({ positions }: Props) {
         <table className="w-full text-sm">
           <thead style={{ background: "rgba(255,107,0,0.03)" }}>
             <tr>
-              <Th label="Closed"   k="closeTimestamp" />
-              <Th label="Symbol"   k="symbol"     />
-              <Th label="Side"     k="side"       />
-              <Th label="Entry"    k="entryPrice" />
-              <Th label="Close"    k="closePrice" />
-              <Th label="Size"     k="size"       />
-              <Th label="Duração"  k="durationMs" />
-              <Th label="PnL"      k="realizedPnl"/>
+              <Th label={t("table.colClosed")}   k="closeTimestamp" />
+              <Th label={t("table.colSymbol")}   k="symbol"     />
+              <Th label={t("table.colSide")}     k="side"       />
+              <Th label={t("table.colEntry")}    k="entryPrice" />
+              <Th label={t("table.colClose")}    k="closePrice" />
+              <Th label={t("table.colSize")}     k="size"       />
+              <Th label={t("table.colDuration")} k="durationMs" />
+              <Th label={t("table.colPnl")}      k="realizedPnl"/>
             </tr>
           </thead>
           <tbody>
@@ -122,7 +124,7 @@ export default function PositionsTable({ positions }: Props) {
               {rows.length === 0 ? (
                 <motion.tr key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                   <td colSpan={8} className="px-5 py-12 text-center text-white/20 text-xs font-orbitron tracking-widest uppercase">
-                    No positions found
+                    {t("table.noPositions")}
                   </td>
                 </motion.tr>
               ) : (
@@ -195,7 +197,7 @@ export default function PositionsTable({ positions }: Props) {
           className="px-5 py-3 flex items-center justify-between text-[10px] font-orbitron tracking-widest uppercase"
           style={{ borderTop: "1px solid rgba(255,107,0,0.07)", color: "rgba(255,255,255,0.20)" }}
         >
-          <span>Page {page + 1} / {totalPages} &nbsp;·&nbsp; {sorted.length.toLocaleString()} positions</span>
+          <span>{t("table.page", { p: page + 1, total: totalPages })} &nbsp;·&nbsp; {t("table.positionsCount", { n: sorted.length.toLocaleString() })}</span>
           <div className="flex gap-1">
             {(["«", "‹", "›", "»"] as const).map((label, idx) => {
               const disabled = idx < 2 ? page === 0 : page === totalPages - 1;

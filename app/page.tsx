@@ -1,4 +1,5 @@
 import WalletAnalyzer from "@/components/WalletAnalyzer";
+import LanguageSelector from "@/components/LanguageSelector";
 
 function SoDEXLogo() {
   return (
@@ -81,10 +82,13 @@ export default function Home() {
             </div>
           </div>
 
-          <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[rgba(255,107,0,0.08)] border border-[rgba(255,107,0,0.22)] text-[#FF6B00] text-[10px] font-bold font-orbitron tracking-[0.2em]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B00] animate-pulse" />
-            MAINNET
-          </span>
+          <div className="flex items-center gap-3">
+            <LanguageSelector />
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[rgba(255,107,0,0.08)] border border-[rgba(255,107,0,0.22)] text-[#FF6B00] text-[10px] font-bold font-orbitron tracking-[0.2em]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B00] animate-pulse" />
+              MAINNET
+            </span>
+          </div>
         </div>
       </header>
 

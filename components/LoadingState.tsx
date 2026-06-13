@@ -1,8 +1,13 @@
+"use client";
+
+import { useI18n } from "./I18nProvider";
+
 interface Props {
   progress?: string | null;
 }
 
 export default function LoadingState({ progress }: Props) {
+  const { t } = useI18n();
   return (
     <div className="space-y-6 mt-10">
       {/* Spinner + live progress */}
@@ -30,10 +35,10 @@ export default function LoadingState({ progress }: Props) {
             className="font-orbitron text-sm font-bold tracking-widest uppercase min-h-[1.25rem]"
             style={{ color: "#FF6B00" }}
           >
-            {progress ?? "SCANNING WALLET..."}
+            {progress ?? t("loading.default")}
           </p>
           <p className="text-xs text-white/25 mt-1 font-inter">
-            Fetching complete on-chain history
+            {t("loading.subtitle")}
           </p>
         </div>
       </div>

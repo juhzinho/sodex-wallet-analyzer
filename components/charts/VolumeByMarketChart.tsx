@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { MarketVolumeData } from "@/types";
 import { formatUsd, formatPercent } from "@/lib/formatters";
+import { useI18n } from "../I18nProvider";
 
 // Orange → amber gradient palette for up to 8 markets
 const PALETTE = [
@@ -19,6 +20,7 @@ function CustomTooltip({ active, payload }: {
   active?: boolean;
   payload?: Array<{ payload: MarketVolumeData }>;
 }) {
+  const { t } = useI18n();
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
@@ -26,15 +28,15 @@ function CustomTooltip({ active, payload }: {
       <p className="font-orbitron font-bold text-white text-[10px] tracking-wider mb-2">{d.symbol}</p>
       <div className="space-y-1">
         <div className="flex gap-4 justify-between">
-          <span className="text-white/40">Volume</span>
+          <span className="text-white/40">{t("tt.volume")}</span>
           <span className="font-mono text-white">{formatUsd(d.volume, { compact: true })}</span>
         </div>
         <div className="flex gap-4 justify-between">
-          <span className="text-white/40">Trades</span>
+          <span className="text-white/40">{t("tt.trades")}</span>
           <span className="font-mono text-white">{d.trades.toLocaleString()}</span>
         </div>
         <div className="flex gap-4 justify-between">
-          <span className="text-white/40">Share</span>
+          <span className="text-white/40">{t("tt.share")}</span>
           <span className="font-mono text-[#FF6B00]">{formatPercent(d.percentage)}</span>
         </div>
       </div>
@@ -43,8 +45,9 @@ function CustomTooltip({ active, payload }: {
 }
 
 export default function VolumeByMarketChart({ data }: Props) {
+  const { t } = useI18n();
   if (!data.length) return (
-    <div className="flex items-center justify-center h-44 text-white/20 text-sm font-orbitron tracking-wider">NO DATA</div>
+    <div className="flex items-center justify-center h-44 text-white/20 text-sm font-orbitron tracking-wider">{t("chart.noData")}</div>
   );
 
   const top = data.slice(0, 8);

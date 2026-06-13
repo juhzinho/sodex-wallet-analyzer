@@ -24,6 +24,7 @@ import {
   SoDEXEnvelope,
 } from "@/types";
 import { sleep, normaliseTimestamp } from "@/lib/utils";
+import { Locale, tr, TranslationKey } from "@/lib/i18n";
 
 const BASE      = "https://mainnet-gw.sodex.dev/api/v1/perps";
 const SPOT_BASE = "https://mainnet-gw.sodex.dev/api/v1/spot";
@@ -114,7 +115,8 @@ function extractTs(item: unknown): number {
 async function fetchAllTimeBased<T>(
   url: string,
   limit: number,
-  label: string,
+  labelKey: TranslationKey,
+  locale: Locale,
   onProgress?: ProgressCallback
 ): Promise<T[]> {
   const all: T[] = [];
@@ -124,7 +126,13 @@ async function fetchAllTimeBased<T>(
 
   for (;;) {
     page++;
-    onProgress?.(`${label}... página ${page} (${all.length} registros)`);
+    onProgress?.(
+      tr(locale, "progress.page", {
+        label: tr(locale, labelKey),
+        page,
+        count: all.length,
+      })
+    );
 
     const params = new URLSearchParams({ limit: String(limit) });
     if (endTime !== undefined) params.set("endTime", String(endTime));
@@ -164,24 +172,28 @@ async function fetchOne<T>(url: string): Promise<T> {
 
 export function fetchTrades(
   address: string,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  locale: Locale = "en"
 ): Promise<ApiTrade[]> {
   return fetchAllTimeBased<ApiTrade>(
     `${BASE}/accounts/${address}/trades`,
     LIMIT.trades,
-    "Buscando trades",
+    "progress.trades",
+    locale,
     onProgress
   );
 }
 
 export function fetchPositionHistory(
   address: string,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  locale: Locale = "en"
 ): Promise<ApiPositionHistory[]> {
   return fetchAllTimeBased<ApiPositionHistory>(
     `${BASE}/accounts/${address}/positions/history`,
     LIMIT.positions,
-    "Buscando posições",
+    "progress.positions",
+    locale,
     onProgress
   );
 }
@@ -194,24 +206,28 @@ export function fetchAccountState(address: string): Promise<ApiAccountState> {
 
 export function fetchSpotTrades(
   address: string,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  locale: Locale = "en"
 ): Promise<ApiTrade[]> {
   return fetchAllTimeBased<ApiTrade>(
     `${SPOT_BASE}/accounts/${address}/trades`,
     LIMIT.trades,
-    "Buscando spot trades",
+    "progress.spot",
+    locale,
     onProgress
   );
 }
 
 export function fetchSpotOrderHistory(
   address: string,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  locale: Locale = "en"
 ): Promise<ApiOrder[]> {
   return fetchAllTimeBased<ApiOrder>(
     `${SPOT_BASE}/accounts/${address}/orders/history`,
     LIMIT.orders,
-    "Buscando spot ordens",
+    "progress.spot",
+    locale,
     onProgress
   );
 }

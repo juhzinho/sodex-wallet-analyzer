@@ -1,6 +1,7 @@
 "use client";
 
 import { useWalletAnalysis } from "@/hooks/useWalletAnalysis";
+import { useI18n } from "./I18nProvider";
 import WalletInput from "./WalletInput";
 import Dashboard from "./Dashboard";
 import LoadingState from "./LoadingState";
@@ -8,6 +9,7 @@ import ErrorState from "./ErrorState";
 
 export default function WalletAnalyzer() {
   const { state, analyze, reset } = useWalletAnalysis();
+  const { locale, t } = useI18n();
 
   return (
     <div>
@@ -20,7 +22,7 @@ export default function WalletAnalyzer() {
         }
       >
         <WalletInput
-          onSubmit={analyze}
+          onSubmit={(addr) => analyze(addr, locale)}
           isLoading={state.status === "loading"}
         />
       </div>
@@ -29,7 +31,7 @@ export default function WalletAnalyzer() {
 
       {state.status === "error" && (
         <ErrorState
-          message={state.error ?? "Unknown error"}
+          message={state.error ?? t("error.unknown")}
           onRetry={reset}
         />
       )}

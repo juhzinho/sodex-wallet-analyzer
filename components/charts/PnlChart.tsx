@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { ChartDataPoint } from "@/types";
 import { formatUsd } from "@/lib/formatters";
+import { useI18n } from "../I18nProvider";
 
 interface Props { data: ChartDataPoint[] }
 
@@ -14,6 +15,7 @@ function CustomTooltip({ active, payload, label }: {
   payload?: Array<{ value: number; dataKey: string }>;
   label?: string;
 }) {
+  const { t } = useI18n();
   if (!active || !payload?.length) return null;
   const cumPnl   = payload.find(p => p.dataKey === "cumulativePnl")?.value ?? 0;
   const dailyPnl = payload.find(p => p.dataKey === "dailyPnl")?.value ?? 0;
@@ -22,13 +24,13 @@ function CustomTooltip({ active, payload, label }: {
       <p className="text-white/35 mb-2 font-orbitron text-[10px] tracking-wider">{label}</p>
       <div className="space-y-1.5">
         <div className="flex gap-4 justify-between">
-          <span className="text-white/45">Cumulative</span>
+          <span className="text-white/45">{t("tt.cumulative")}</span>
           <span className={`font-bold font-mono ${cumPnl >= 0 ? "text-[#FF6B00]" : "text-red-400"}`}>
             {formatUsd(cumPnl, { signed: true })}
           </span>
         </div>
         <div className="flex gap-4 justify-between">
-          <span className="text-white/45">Daily</span>
+          <span className="text-white/45">{t("tt.daily")}</span>
           <span className={`font-mono ${dailyPnl >= 0 ? "text-[#FF8A33]" : "text-red-400"}`}>
             {formatUsd(dailyPnl, { signed: true })}
           </span>
@@ -39,9 +41,10 @@ function CustomTooltip({ active, payload, label }: {
 }
 
 export default function PnlChart({ data }: Props) {
+  const { t } = useI18n();
   if (!data.length) return (
     <div className="flex items-center justify-center h-52 text-white/20 text-xs font-orbitron tracking-widest">
-      NO DATA
+      {t("chart.noData")}
     </div>
   );
 

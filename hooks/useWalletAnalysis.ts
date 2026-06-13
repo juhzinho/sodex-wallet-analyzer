@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { AnalysisState, ProgressEvent } from "@/types";
+import { Locale, tr } from "@/lib/i18n";
 
 export function useWalletAnalysis() {
   const [state, setState] = useState<AnalysisState>({
@@ -14,14 +15,14 @@ export function useWalletAnalysis() {
   // Keep a ref to the active EventSource so we can close it on reset/new search
   const esRef = useRef<EventSource | null>(null);
 
-  const analyze = useCallback((address: string) => {
+  const analyze = useCallback((address: string, locale: Locale = "en") => {
     // Close any in-flight stream
     esRef.current?.close();
     esRef.current = null;
 
-    setState({ status: "loading", data: null, error: null, progress: "Conectando..." });
+    setState({ status: "loading", data: null, error: null, progress: tr(locale, "progress.connecting") });
 
-    const es = new EventSource(`/api/analyze/${address}`);
+    const es = new EventSource(`/api/analyze/${address}?lang=${encodeURIComponent(locale)}`);
     esRef.current = es;
 
     es.onmessage = (event: MessageEvent<string>) => {
