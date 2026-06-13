@@ -279,6 +279,16 @@ export interface WalletMetrics {
   shortVolume: number;
   longTrades: number;
   shortTrades: number;
+  // Open Interest (current open positions notional from /state P[])
+  openInterest: number;
+  openPositionsCount: number;
+  // Position duration stats (ms), from /positions/history updatedAt - createdAt
+  avgPositionDuration: number;
+  medianPositionDuration: number;
+  shortestPositionDuration: number;
+  longestPositionDuration: number;
+  // Campaign-day trade counts (day = 21:00 BRT → 21:00 BRT)
+  tradesToday: number;
 }
 
 export interface ProcessedTrade {
@@ -305,6 +315,28 @@ export interface ProcessedPosition {
   openTimestamp: number;
   closeTimestamp: number;
   isWin: boolean;
+}
+
+// Closed position from /positions/history, with real open→close duration
+export interface HistoryPosition {
+  id: string;
+  symbol: string;
+  side: "LONG" | "SHORT";
+  entryPrice: number;
+  closePrice: number;
+  size: number;
+  realizedPnl: number;
+  leverage: number;
+  openTimestamp: number;
+  closeTimestamp: number;
+  durationMs: number;
+}
+
+// One campaign day (21:00 BRT → 21:00 BRT) trade count, for the 14-day histogram
+export interface CampaignDayPoint {
+  timestamp: number;  // campaign-day start (00:00 UTC)
+  label: string;      // short BRT-aligned label e.g. "Jun 13"
+  trades: number;
 }
 
 export interface ChartDataPoint {
@@ -351,6 +383,8 @@ export interface FullAnalysis {
   metrics: WalletMetrics;
   processedTrades: ProcessedTrade[];
   positions: ProcessedPosition[];
+  historyPositions: HistoryPosition[];
+  campaignDaily: CampaignDayPoint[];
   chartData: ChartDataPoint[];
   marketData: MarketVolumeData[];
   longShortData: LongShortData[];

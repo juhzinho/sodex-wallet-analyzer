@@ -65,3 +65,16 @@ export function getLastWeeklyReset(nowMs: number = Date.now()): number {
 export function getNextWeeklyReset(nowMs: number = Date.now()): number {
   return getLastWeeklyReset(nowMs) + ONE_WEEK_MS;
 }
+
+// ─── Campaign day (daily reset) ──────────────────────────────────────────
+// The campaign day runs 21:00 BRT → 21:00 BRT. Since 21:00 BRT === 00:00 UTC,
+// campaign days align exactly with UTC calendar days. The start of the
+// campaign day containing `tsMs` is therefore that day's 00:00:00 UTC.
+
+export const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Timestamp (ms) of the start (21:00 BRT / 00:00 UTC) of the campaign day containing `tsMs`. */
+export function getCampaignDayStart(tsMs: number = Date.now()): number {
+  // Epoch 0 is 1970-01-01 00:00 UTC, so flooring to whole days yields UTC midnight.
+  return Math.floor(tsMs / ONE_DAY_MS) * ONE_DAY_MS;
+}

@@ -17,9 +17,17 @@ import {
   ChartDataPoint,
   MarketVolumeData,
   LongShortData,
+  HistoryPosition,
+  CampaignDayPoint,
   FullAnalysis,
 } from "@/types";
-import { parseDecimal, normaliseTimestamp, getLastWeeklyReset } from "@/lib/utils";
+import {
+  parseDecimal,
+  normaliseTimestamp,
+  getLastWeeklyReset,
+  getCampaignDayStart,
+  ONE_DAY_MS,
+} from "@/lib/utils";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -203,8 +211,10 @@ function buildMetrics(
   const now = Date.now();
   const weekResetTs = getLastWeeklyReset(now);
   const monthStartTs = now - 30 * 24 * 60 * 60 * 1000;
+  const campaignDayStart = getCampaignDayStart(now);
   let weeklyVolume = 0;
   let monthlyVolume = 0;
+  let tradesToday = 0;
 
   for (const t of trades) {
     volume += t.volume;
@@ -213,7 +223,47 @@ function buildMetrics(
     else { shortVolume += t.volume; shortTrades++; }
     if (t.timestamp >= weekResetTs) weeklyVolume += t.volume;
     if (t.timestamp >= monthStartTs) monthlyVolume += t.volume;
+    if (t.timestamp >= campaignDayStart) tradesToday++;
   }
+
+  // ── Open Interest (current open positions notional) ──
+  // SoDEX /state P[]: sz = size (signed; negative = short), ep = entry price,
+  // ur = unrealized PnL. No explicit mark price → derive it:
+  //   markPrice = ep + ur / sz   →   notional = |sz| × markPrice
+  // (for a long this equals |sz|·ep + ur; the identity holds for shorts too).
+  let openInterest = 0;
+  let openPositionsCount = 0;
+  if (state?.P && state.P.length > 0) {
+    for (const pos of state.P) {
+      const sz = parseDecimal(pos.sz ?? pos.size);
+      if (Math.abs(sz) < 1e-12) continue;
+      const ep = parseDecimal(pos.ep ?? pos.entryPrice);
+      const ur = parseDecimal(pos.ur ?? pos.unrealizedPnl ?? pos.upnl);
+      const markPrice = ep + ur / sz;
+      const notional = Math.abs(sz) * (markPrice > 0 ? markPrice : ep);
+      openInterest += notional;
+      openPositionsCount++;
+    }
+  }
+
+  // ── Position duration stats (from /positions/history) ──
+  const durations: number[] = [];
+  for (const p of posHistory) {
+    const open = normaliseTimestamp(parseDecimal(p.createdAt ?? p.openTimestamp ?? p.openTime));
+    const close = normaliseTimestamp(parseDecimal(p.updatedAt ?? p.closeTimestamp ?? p.closeTime));
+    if (open > 0 && close > open) durations.push(close - open);
+  }
+  durations.sort((a, b) => a - b);
+  const avgPositionDuration =
+    durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
+  const medianPositionDuration =
+    durations.length > 0
+      ? durations.length % 2 === 1
+        ? durations[(durations.length - 1) / 2]
+        : (durations[durations.length / 2 - 1] + durations[durations.length / 2]) / 2
+      : 0;
+  const shortestPositionDuration = durations.length > 0 ? durations[0] : 0;
+  const longestPositionDuration = durations.length > 0 ? durations[durations.length - 1] : 0;
 
   // ── Funding ──
   // Confirmed SoDEX field: "fundingFee"
@@ -318,7 +368,60 @@ function buildMetrics(
     shortVolume,
     longTrades,
     shortTrades,
+    openInterest,
+    openPositionsCount,
+    avgPositionDuration,
+    medianPositionDuration,
+    shortestPositionDuration,
+    longestPositionDuration,
+    tradesToday,
   };
+}
+
+// ─── Closed positions from /positions/history (with real durations) ──────
+
+function buildHistoryPositions(posHistory: ApiPositionHistory[]): HistoryPosition[] {
+  return posHistory
+    .map((p, i): HistoryPosition => {
+      const open = normaliseTimestamp(parseDecimal(p.createdAt ?? p.openTimestamp ?? p.openTime));
+      const close = normaliseTimestamp(parseDecimal(p.updatedAt ?? p.closeTimestamp ?? p.closeTime));
+      const side = normaliseSide(p.positionSide ?? p.side ?? p.dir);
+      return {
+        id: String(p.id ?? `pos-hist-${i}`),
+        symbol: (p.symbol ?? p.coin ?? p.market ?? "UNKNOWN").replace(/-PERP$/i, "").toUpperCase(),
+        side,
+        entryPrice: parseDecimal(p.avgEntryPrice ?? p.entryPrice ?? p.avg_entry_price ?? p.openPrice),
+        closePrice: parseDecimal(p.avgClosePrice ?? p.exitPrice ?? p.closePrice ?? p.exit_price),
+        size: Math.abs(parseDecimal(p.maxSize ?? p.size ?? p.cumClosedSize ?? p.closedSize)),
+        realizedPnl: parseDecimal(p.realizedPnL ?? p.realizedPnl ?? p.closedPnl ?? p.pnl),
+        leverage: typeof p.leverage === "number" ? p.leverage : parseDecimal(p.leverage) || 0,
+        openTimestamp: open,
+        closeTimestamp: close,
+        durationMs: open > 0 && close > open ? close - open : 0,
+      };
+    })
+    .sort((a, b) => b.closeTimestamp - a.closeTimestamp);
+}
+
+// ─── Campaign-day trade histogram (last 14 days, 21:00 BRT boundaries) ────
+
+function buildCampaignDaily(trades: ProcessedTrade[], nowMs: number): CampaignDayPoint[] {
+  const counts = new Map<number, number>();
+  for (const t of trades) {
+    if (!t.timestamp) continue;
+    const dayStart = getCampaignDayStart(t.timestamp);
+    counts.set(dayStart, (counts.get(dayStart) ?? 0) + 1);
+  }
+
+  const todayStart = getCampaignDayStart(nowMs);
+  const out: CampaignDayPoint[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const ts = todayStart - i * ONE_DAY_MS;
+    const d = new Date(ts);
+    const label = `${d.toLocaleString("en-US", { month: "short", timeZone: "UTC" })} ${d.getUTCDate()}`;
+    out.push({ timestamp: ts, label, trades: counts.get(ts) ?? 0 });
+  }
+  return out;
 }
 
 // ─── Chart data (daily aggregation) ──────────────────────────────────────
@@ -522,10 +625,12 @@ export async function analyzeWallet(
 
   // ── Perps ─────────────────────────────────────────────────────────────
   const { processedTrades, positions } = reconstructFromFills(rawTrades);
-  const metrics       = buildMetrics(address, processedTrades, positions, rawPosHistory, rawFundings, state);
-  const chartData     = buildChartData(processedTrades, rawFundings);
-  const marketData    = buildMarketData(processedTrades);
-  const longShortData = buildLongShortData(processedTrades);
+  const metrics          = buildMetrics(address, processedTrades, positions, rawPosHistory, rawFundings, state);
+  const chartData        = buildChartData(processedTrades, rawFundings);
+  const marketData       = buildMarketData(processedTrades);
+  const longShortData    = buildLongShortData(processedTrades);
+  const historyPositions = buildHistoryPositions(rawPosHistory);
+  const campaignDaily    = buildCampaignDaily(processedTrades, Date.now());
 
   // ── Spot ──────────────────────────────────────────────────────────────
   const spotTrades        = processSpotTrades(rawSpotTrades);
@@ -543,6 +648,8 @@ export async function analyzeWallet(
     metrics,
     processedTrades: [...processedTrades].sort((a, b) => b.timestamp - a.timestamp),
     positions:       [...positions].sort((a, b) => b.closeTimestamp - a.closeTimestamp),
+    historyPositions,
+    campaignDaily,
     chartData,
     marketData,
     longShortData,

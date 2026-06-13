@@ -6,11 +6,13 @@ import { FullAnalysis } from "@/types";
 import { getNextWeeklyReset } from "@/lib/utils";
 import MetricsCard from "./MetricsCard";
 import TradesTable from "./TradesTable";
+import PositionsTable from "./PositionsTable";
 import PnlChart from "./charts/PnlChart";
 import VolumeChart from "./charts/VolumeChart";
 import LongShortChart from "./charts/LongShortChart";
 import VolumeByMarketChart from "./charts/VolumeByMarketChart";
-import { formatUsd, formatPercent, formatDate } from "@/lib/formatters";
+import CampaignChart from "./charts/CampaignChart";
+import { formatUsd, formatPercent, formatDate, formatDuration } from "@/lib/formatters";
 
 // Each dashboard section fades + slides up with a staggered delay
 function FadeUp({ index, children, className }: {
@@ -70,6 +72,25 @@ const I = {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8" />
       <path d="M12 6v6l4 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  OI: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M3 3v18h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 14l3-3 3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  Duration: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="13" r="8" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 9v4l2.5 2.5M9 2h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  Today: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="16" r="2" fill="currentColor" />
     </svg>
   ),
 };
@@ -195,7 +216,8 @@ export default function Dashboard({ data, onReset }: Props) {
   const resetCountdown = useResetCountdown();
 
   const {
-    metrics, processedTrades, chartData, marketData, longShortData,
+    metrics, processedTrades, historyPositions, campaignDaily,
+    chartData, marketData, longShortData,
     spotMetrics, spotTrades, spotMarketData, spotLongShortData,
     totalVolume, totalFees, totalTrades,
   } = data;
@@ -258,7 +280,7 @@ export default function Dashboard({ data, onReset }: Props) {
       {tab === "perps" && <>
         <FadeUp index={2}>
           <Section>Campaign Volume</Section>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <MetricsCard
               index={0}
               title="Volume Semanal"
@@ -277,6 +299,15 @@ export default function Dashboard({ data, onReset }: Props) {
               trend="neutral"
               icon={<I.Month />}
             />
+            <MetricsCard
+              index={2}
+              title="Trades Hoje"
+              rawValue={metrics.tradesToday}
+              displayValue={metrics.tradesToday.toLocaleString()}
+              subValue="dia de campanha (21:00 BRT)"
+              trend="neutral"
+              icon={<I.Today />}
+            />
           </div>
         </FadeUp>
 
@@ -292,7 +323,7 @@ export default function Dashboard({ data, onReset }: Props) {
           </div>
         </FadeUp>
 
-        <FadeUp index={3} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <FadeUp index={4} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="glass-card p-5">
             <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">Performance</p>
             <StatRow label="Best Trade"  value={formatUsd(metrics.bestTrade,   { signed: true })} color="#22c55e" />
@@ -323,7 +354,37 @@ export default function Dashboard({ data, onReset }: Props) {
           </div>
         </FadeUp>
 
-        <FadeUp index={4}>
+        <FadeUp index={5}>
+          <Section>Open Positions & Campaign</Section>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <MetricsCard
+              index={0}
+              title="Open Interest"
+              rawValue={metrics.openInterest}
+              displayValue={formatUsd(metrics.openInterest, { compact: true })}
+              subValue={`${metrics.openPositionsCount} open position${metrics.openPositionsCount === 1 ? "" : "s"}`}
+              trend="neutral"
+              icon={<I.OI />}
+            />
+            <div className="glass-card p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[#FF6B00]"><I.Duration /></span>
+                <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)]">
+                  Position Duration
+                </p>
+              </div>
+              <StatRow label="Média"    value={formatDuration(metrics.avgPositionDuration)} />
+              <StatRow label="Mediana"  value={formatDuration(metrics.medianPositionDuration)} />
+              <StatRow label="Mais curta" value={formatDuration(metrics.shortestPositionDuration)} color="#22c55e" />
+              <StatRow label="Mais longa" value={formatDuration(metrics.longestPositionDuration)} color="#FF6B00" />
+            </div>
+            <ChartCard title="Trades por dia" subtitle="Últimos 14 dias de campanha (21:00 BRT)">
+              <CampaignChart data={campaignDaily} />
+            </ChartCard>
+          </div>
+        </FadeUp>
+
+        <FadeUp index={6}>
           <Section>Charts</Section>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <ChartCard title="Cumulative PnL" subtitle="Realised PnL + funding" className="lg:col-span-2">
@@ -335,7 +396,7 @@ export default function Dashboard({ data, onReset }: Props) {
           </div>
         </FadeUp>
 
-        <FadeUp index={5} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <FadeUp index={7} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <ChartCard title="Daily Volume" subtitle="Perps notional volume">
             <VolumeChart data={chartData} />
           </ChartCard>
@@ -344,7 +405,12 @@ export default function Dashboard({ data, onReset }: Props) {
           </ChartCard>
         </FadeUp>
 
-        <FadeUp index={6}>
+        <FadeUp index={8}>
+          <Section>Positions</Section>
+          <PositionsTable positions={historyPositions} />
+        </FadeUp>
+
+        <FadeUp index={9}>
           <Section>Trade History</Section>
           <TradesTable trades={processedTrades} />
         </FadeUp>

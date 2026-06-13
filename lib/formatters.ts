@@ -58,6 +58,23 @@ export function formatDateShort(timestamp: number): string {
   });
 }
 
+// Human-friendly position duration: "110ms", "44s", "1m 44s", "2h 15m", "3d 4h"
+export function formatDuration(ms: number): string {
+  if (!isFinite(ms) || ms < 0) return "—";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+
+  const totalSec = Math.floor(ms / 1000);
+  const d = Math.floor(totalSec / 86_400);
+  const h = Math.floor((totalSec % 86_400) / 3_600);
+  const m = Math.floor((totalSec % 3_600) / 60);
+  const s = totalSec % 60;
+
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
 export function pnlColor(value: number): string {
   if (value > 0) return "text-profit";
   if (value < 0) return "text-loss";
