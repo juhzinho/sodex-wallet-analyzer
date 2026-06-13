@@ -369,7 +369,7 @@ export default function Dashboard({ data, onReset }: Props) {
               title={t("card.openInterest")}
               rawValue={metrics.openInterest}
               displayValue={formatUsd(metrics.openInterest, { compact: true })}
-              subValue={t("card.openInterestSub", { n: metrics.openPositionsCount })}
+              subValue={t("card.openInterestTwa")}
               trend="neutral"
               icon={<I.OI />}
             />

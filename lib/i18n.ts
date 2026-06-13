@@ -98,6 +98,7 @@ const en = {
   // Cards — open interest / duration
   "card.openInterest": "Open Interest",
   "card.openInterestSub": "{n} open position(s)",
+  "card.openInterestTwa": "weekly time-weighted avg",
   "card.positionDuration": "Position Duration",
   "dur.average": "Average",
   "dur.median": "Median",
@@ -283,6 +284,7 @@ const ptBR: Dict = {
 
   "card.openInterest": "Posições em Aberto",
   "card.openInterestSub": "{n} posição(ões) aberta(s)",
+  "card.openInterestTwa": "média semanal ponderada pelo tempo",
   "card.positionDuration": "Duração das Posições",
   "dur.average": "Média",
   "dur.median": "Mediana",
@@ -455,6 +457,7 @@ const es: Dict = {
 
   "card.openInterest": "Interés Abierto",
   "card.openInterestSub": "{n} posición(es) abierta(s)",
+  "card.openInterestTwa": "promedio semanal ponderado por tiempo",
   "card.positionDuration": "Duración de Posiciones",
   "dur.average": "Promedio",
   "dur.median": "Mediana",

@@ -227,25 +227,50 @@ function buildMetrics(
     if (t.timestamp >= campaignDayStart) tradesToday++;
   }
 
-  // ── Open Interest (current open positions notional) ──
-  // SoDEX /state P[]: sz = size (signed; negative = short), ep = entry price,
-  // ur = unrealized PnL. No explicit mark price → derive it:
-  //   markPrice = ep + ur / sz   →   notional = |sz| × markPrice
-  // (for a long this equals |sz|·ep + ur; the identity holds for shorts too).
-  let openInterest = 0;
+  // ── Open Interest: weekly time-weighted average (SoDEX campaign method) ──
+  // OI_twa = Σ(notional_i × ms_open_within_week_i) / 168h
+  // where notional = |maxSize| × avgEntryPrice. Every position's open interval
+  // is clipped to the current campaign week [weekStart, weekStart + 7d), so a
+  // position that straddles the Friday-21:00-BRT boundary only contributes the
+  // portion of time that falls inside this week.
+  //   • Closed positions  → from /positions/history (createdAt → updatedAt)
+  //   • Live open positions → from /state P[] (ct → now), giving the running
+  //     "live accumulator" for the in-progress week.
+  // Denominator is the full week (604_800_000 ms) per the campaign definition,
+  // so the current week's value grows as the week elapses.
+  const ONE_WEEK_MS = 7 * ONE_DAY_MS;
+  const weekStartTs = weekResetTs;
+  const weekEndTs = weekStartTs + ONE_WEEK_MS;
+  let oiWeightedSum = 0;
   let openPositionsCount = 0;
+
+  for (const p of posHistory) {
+    if (p.active) continue; // still-open positions are counted from /state below
+    const open = normaliseTimestamp(parseDecimal(p.createdAt ?? p.openTimestamp ?? p.openTime));
+    const close = normaliseTimestamp(parseDecimal(p.updatedAt ?? p.closeTimestamp ?? p.closeTime));
+    if (!(open > 0 && close > open)) continue;
+    const ms = Math.min(close, weekEndTs) - Math.max(open, weekStartTs);
+    if (ms <= 0) continue; // entirely outside the current campaign week
+    const notional =
+      Math.abs(parseDecimal(p.maxSize ?? p.size ?? p.cumClosedSize)) *
+      parseDecimal(p.avgEntryPrice ?? p.entryPrice ?? p.avg_entry_price ?? p.openPrice);
+    oiWeightedSum += notional * ms;
+  }
+
   if (state?.P && state.P.length > 0) {
     for (const pos of state.P) {
       const sz = parseDecimal(pos.sz ?? pos.size);
       if (Math.abs(sz) < 1e-12) continue;
-      const ep = parseDecimal(pos.ep ?? pos.entryPrice);
-      const ur = parseDecimal(pos.ur ?? pos.unrealizedPnl ?? pos.upnl);
-      const markPrice = ep + ur / sz;
-      const notional = Math.abs(sz) * (markPrice > 0 ? markPrice : ep);
-      openInterest += notional;
       openPositionsCount++;
+      const ep = parseDecimal(pos.ep ?? pos.entryPrice);
+      const open = normaliseTimestamp(parseDecimal(pos.ct));
+      const ms = Math.min(now, weekEndTs) - Math.max(open > 0 ? open : weekStartTs, weekStartTs);
+      if (ms <= 0) continue;
+      oiWeightedSum += Math.abs(sz) * ep * ms;
     }
   }
+
+  const openInterest = oiWeightedSum / ONE_WEEK_MS;
 
   // ── Position duration stats (from /positions/history) ──
   const durations: number[] = [];
