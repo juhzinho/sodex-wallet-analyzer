@@ -373,8 +373,10 @@ function buildMetrics(
   const grossProfit = wins.reduce((a, b) => a + b, 0);
   const grossLoss = losses.reduce((a, b) => a + b, 0);
   const netPnl = realizedPnl + unrealizedPnl + funding;
-  const pnlAfterFees = realizedPnl - fees;
-  const netPnlAfterFees = netPnl - fees;
+  // SoDEX realizedPnL per position already includes trading fees — do NOT subtract again.
+  const pnlBeforeFees = realizedPnl + fees;
+  const pnlAfterFees = realizedPnl;
+  const netPnlAfterFees = netPnl;
 
   return {
     wallet,
@@ -409,6 +411,7 @@ function buildMetrics(
     tradesToday,
     grossProfit,
     grossLoss,
+    pnlBeforeFees,
     pnlAfterFees,
     netPnlAfterFees,
   };

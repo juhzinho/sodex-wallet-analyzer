@@ -241,6 +241,7 @@ export default function Dashboard({ data, onReset }: Props) {
   const wrTrend   = metrics.winRate >= 50 ? "positive" : metrics.winRate > 0 ? "negative" : "neutral";
   const profitTrend = metrics.grossProfit > 0 ? "positive" : "neutral";
   const lossTrend   = metrics.grossLoss < 0 ? "negative" : "neutral";
+  const beforeFeesTrend = metrics.pnlBeforeFees > 0 ? "positive" : metrics.pnlBeforeFees < 0 ? "negative" : "neutral";
   const afterFeesTrend = metrics.pnlAfterFees > 0 ? "positive" : metrics.pnlAfterFees < 0 ? "negative" : "neutral";
   const netAfterFeesTrend = metrics.netPnlAfterFees > 0 ? "positive" : metrics.netPnlAfterFees < 0 ? "negative" : "neutral";
 
@@ -363,21 +364,21 @@ export default function Dashboard({ data, onReset }: Props) {
             />
             <MetricsCard
               index={2}
-              title={t("card.pnlAfterFees")}
-              rawValue={metrics.pnlAfterFees}
-              displayValue={formatUsd(metrics.pnlAfterFees, { compact: true, signed: true })}
-              subValue={t("card.pnlAfterFeesSub")}
-              trend={afterFeesTrend}
-              icon={<I.Fee />}
+              title={t("card.pnlBeforeFees")}
+              rawValue={metrics.pnlBeforeFees}
+              displayValue={formatUsd(metrics.pnlBeforeFees, { compact: true, signed: true })}
+              subValue={t("card.pnlBeforeFeesSub")}
+              trend={beforeFeesTrend}
+              icon={<I.Volume />}
             />
             <MetricsCard
               index={3}
-              title={t("card.netPnlAfterFees")}
-              rawValue={metrics.netPnlAfterFees}
-              displayValue={formatUsd(metrics.netPnlAfterFees, { compact: true, signed: true })}
-              subValue={t("card.netPnlAfterFeesSub")}
-              trend={netAfterFeesTrend}
-              icon={<I.Funding />}
+              title={t("card.pnlAfterFees")}
+              rawValue={metrics.pnlAfterFees}
+              displayValue={formatUsd(metrics.pnlAfterFees, { compact: true, signed: true })}
+              subValue={t("card.pnlAfterFeesSub", { v: formatUsd(metrics.fees, { compact: true }) })}
+              trend={afterFeesTrend}
+              icon={<I.Fee />}
             />
           </div>
         </FadeUp>
@@ -408,8 +409,9 @@ export default function Dashboard({ data, onReset }: Props) {
             <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">{t("stat.pnlBreakdown")}</p>
             <StatRow label={t("stat.grossProfit")}       value={formatUsd(metrics.grossProfit,       { signed: true })} color="#22c55e" />
             <StatRow label={t("stat.grossLoss")}         value={formatUsd(metrics.grossLoss,         { signed: true })} color="#ef4444" />
+            <StatRow label={t("stat.pnlBeforeFees")}    value={formatUsd(metrics.pnlBeforeFees,     { signed: true })} color={metrics.pnlBeforeFees     >= 0 ? "#22c55e" : "#ef4444"} />
             <StatRow label={t("card.fees")}              value={formatUsd(metrics.fees,              { signed: true })} color="#ef4444" />
-            <StatRow label={t("stat.pnlAfterFees")}      value={formatUsd(metrics.pnlAfterFees,      { signed: true })} color={metrics.pnlAfterFees      >= 0 ? "#22c55e" : "#ef4444"} />
+            <StatRow label={t("stat.pnlAfterFees")}     value={formatUsd(metrics.pnlAfterFees,      { signed: true })} color={metrics.pnlAfterFees      >= 0 ? "#22c55e" : "#ef4444"} />
             <StatRow label={t("stat.realised")}          value={formatUsd(metrics.realizedPnl,       { signed: true })} color={metrics.realizedPnl       >= 0 ? "#22c55e" : "#ef4444"} />
             <StatRow label={t("stat.unrealised")}        value={formatUsd(metrics.unrealizedPnl,     { signed: true })} color={metrics.unrealizedPnl     >= 0 ? "#22c55e" : "#ef4444"} />
             <StatRow label={t("card.funding")}           value={formatUsd(metrics.funding,            { signed: true })} color={metrics.funding            >= 0 ? "#22c55e" : "#ef4444"} />
@@ -538,6 +540,7 @@ export default function Dashboard({ data, onReset }: Props) {
             <StatRow label={t("row.netPnl")}  value={formatUsd(metrics.netPnl, { signed: true })} color={metrics.netPnl >= 0 ? "#FF6B00" : "#ef4444"} />
             <StatRow label={t("stat.grossProfit")} value={formatUsd(metrics.grossProfit, { signed: true })} color="#22c55e" />
             <StatRow label={t("stat.pnlAfterFees")} value={formatUsd(metrics.pnlAfterFees, { signed: true })} color={metrics.pnlAfterFees >= 0 ? "#22c55e" : "#ef4444"} />
+            <StatRow label={t("card.fees")} value={formatUsd(metrics.fees, { compact: true })} color="#ef4444" />
           </div>
 
           {/* Spot breakdown */}

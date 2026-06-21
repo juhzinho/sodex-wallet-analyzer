@@ -290,10 +290,11 @@ export interface WalletMetrics {
   // Campaign-day trade counts (day = 21:00 BRT → 21:00 BRT)
   tradesToday: number;
   // Profit breakdown (from closed positions)
-  grossProfit: number;       // sum of all winning position PnLs
-  grossLoss: number;         // sum of all losing position PnLs (negative)
-  pnlAfterFees: number;      // realizedPnl − trading fees
-  netPnlAfterFees: number;   // netPnl − trading fees (incl. unrealised + funding)
+  grossProfit: number;       // sum of all winning position PnLs (fees already in each)
+  grossLoss: number;         // sum of all losing position PnLs (negative, fees included)
+  pnlBeforeFees: number;     // realizedPnl + fees — hypothetical PnL without trading costs
+  pnlAfterFees: number;      // = realizedPnl (SoDEX already deducts fees per position)
+  netPnlAfterFees: number;   // = netPnl (realised leg already net of fees)
 }
 
 export interface ProcessedTrade {
