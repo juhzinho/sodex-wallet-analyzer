@@ -370,6 +370,12 @@ function buildMetrics(
   const averageLoss =
     losses.length > 0 ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
 
+  const grossProfit = wins.reduce((a, b) => a + b, 0);
+  const grossLoss = losses.reduce((a, b) => a + b, 0);
+  const netPnl = realizedPnl + unrealizedPnl + funding;
+  const pnlAfterFees = realizedPnl - fees;
+  const netPnlAfterFees = netPnl - fees;
+
   return {
     wallet,
     volume,
@@ -386,7 +392,7 @@ function buildMetrics(
     worstTrade,
     averageWin,
     averageLoss,
-    netPnl: realizedPnl + unrealizedPnl + funding,
+    netPnl,
     totalPositions,
     winningPositions: wins.length,
     losingPositions: losses.length,
@@ -401,6 +407,10 @@ function buildMetrics(
     shortestPositionDuration,
     longestPositionDuration,
     tradesToday,
+    grossProfit,
+    grossLoss,
+    pnlAfterFees,
+    netPnlAfterFees,
   };
 }
 

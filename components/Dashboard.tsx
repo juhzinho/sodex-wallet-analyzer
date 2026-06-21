@@ -94,6 +94,12 @@ const I = {
       <circle cx="12" cy="16" r="2" fill="currentColor" />
     </svg>
   ),
+  Profit: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M19 5l-3 3M19 5l-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
 };
 
 // Live countdown to the next weekly campaign reset (Fri 21:00 BRT).
@@ -233,6 +239,10 @@ export default function Dashboard({ data, onReset }: Props) {
   const uPnlTrend = metrics.unrealizedPnl > 0 ? "positive" : metrics.unrealizedPnl < 0 ? "negative" : "neutral";
   const fundTrend = metrics.funding > 0 ? "positive" : metrics.funding < 0 ? "negative" : "neutral";
   const wrTrend   = metrics.winRate >= 50 ? "positive" : metrics.winRate > 0 ? "negative" : "neutral";
+  const profitTrend = metrics.grossProfit > 0 ? "positive" : "neutral";
+  const lossTrend   = metrics.grossLoss < 0 ? "negative" : "neutral";
+  const afterFeesTrend = metrics.pnlAfterFees > 0 ? "positive" : metrics.pnlAfterFees < 0 ? "negative" : "neutral";
+  const netAfterFeesTrend = metrics.netPnlAfterFees > 0 ? "positive" : metrics.netPnlAfterFees < 0 ? "negative" : "neutral";
 
   return (
     <div className="space-y-8">
@@ -330,7 +340,49 @@ export default function Dashboard({ data, onReset }: Props) {
           </div>
         </FadeUp>
 
-        <FadeUp index={4} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <FadeUp index={4}>
+          <Section>{t("section.profits")}</Section>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <MetricsCard
+              index={0}
+              title={t("card.grossProfit")}
+              rawValue={metrics.grossProfit}
+              displayValue={formatUsd(metrics.grossProfit, { compact: true, signed: true })}
+              subValue={t("card.grossProfitSub", { n: metrics.winningPositions.toLocaleString() })}
+              trend={profitTrend}
+              icon={<I.Profit />}
+            />
+            <MetricsCard
+              index={1}
+              title={t("card.grossLoss")}
+              rawValue={metrics.grossLoss}
+              displayValue={formatUsd(metrics.grossLoss, { compact: true, signed: true })}
+              subValue={t("card.grossLossSub", { n: metrics.losingPositions.toLocaleString() })}
+              trend={lossTrend}
+              icon={<I.Pnl />}
+            />
+            <MetricsCard
+              index={2}
+              title={t("card.pnlAfterFees")}
+              rawValue={metrics.pnlAfterFees}
+              displayValue={formatUsd(metrics.pnlAfterFees, { compact: true, signed: true })}
+              subValue={t("card.pnlAfterFeesSub")}
+              trend={afterFeesTrend}
+              icon={<I.Fee />}
+            />
+            <MetricsCard
+              index={3}
+              title={t("card.netPnlAfterFees")}
+              rawValue={metrics.netPnlAfterFees}
+              displayValue={formatUsd(metrics.netPnlAfterFees, { compact: true, signed: true })}
+              subValue={t("card.netPnlAfterFeesSub")}
+              trend={netAfterFeesTrend}
+              icon={<I.Funding />}
+            />
+          </div>
+        </FadeUp>
+
+        <FadeUp index={5} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="glass-card p-5">
             <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">{t("stat.performance")}</p>
             <StatRow label={t("stat.bestTrade")}  value={formatUsd(metrics.bestTrade,   { signed: true })} color="#22c55e" />
@@ -354,14 +406,18 @@ export default function Dashboard({ data, onReset }: Props) {
           </div>
           <div className="glass-card p-5">
             <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">{t("stat.pnlBreakdown")}</p>
-            <StatRow label={t("stat.realised")}   value={formatUsd(metrics.realizedPnl,   { signed: true })} color={metrics.realizedPnl   >= 0 ? "#22c55e" : "#ef4444"} />
-            <StatRow label={t("stat.unrealised")} value={formatUsd(metrics.unrealizedPnl, { signed: true })} color={metrics.unrealizedPnl >= 0 ? "#22c55e" : "#ef4444"} />
-            <StatRow label={t("card.funding")}    value={formatUsd(metrics.funding,        { signed: true })} color={metrics.funding        >= 0 ? "#22c55e" : "#ef4444"} />
-            <StatRow label={t("stat.netPnl")}    value={formatUsd(metrics.netPnl,         { signed: true })} color={metrics.netPnl         >= 0 ? "#FF6B00" : "#ef4444"} />
+            <StatRow label={t("stat.grossProfit")}       value={formatUsd(metrics.grossProfit,       { signed: true })} color="#22c55e" />
+            <StatRow label={t("stat.grossLoss")}         value={formatUsd(metrics.grossLoss,         { signed: true })} color="#ef4444" />
+            <StatRow label={t("card.fees")}              value={formatUsd(metrics.fees,              { signed: true })} color="#ef4444" />
+            <StatRow label={t("stat.pnlAfterFees")}      value={formatUsd(metrics.pnlAfterFees,      { signed: true })} color={metrics.pnlAfterFees      >= 0 ? "#22c55e" : "#ef4444"} />
+            <StatRow label={t("stat.realised")}          value={formatUsd(metrics.realizedPnl,       { signed: true })} color={metrics.realizedPnl       >= 0 ? "#22c55e" : "#ef4444"} />
+            <StatRow label={t("stat.unrealised")}        value={formatUsd(metrics.unrealizedPnl,     { signed: true })} color={metrics.unrealizedPnl     >= 0 ? "#22c55e" : "#ef4444"} />
+            <StatRow label={t("card.funding")}           value={formatUsd(metrics.funding,            { signed: true })} color={metrics.funding            >= 0 ? "#22c55e" : "#ef4444"} />
+            <StatRow label={t("stat.netPnlAfterFees")}  value={formatUsd(metrics.netPnlAfterFees,   { signed: true })} color={metrics.netPnlAfterFees   >= 0 ? "#FF6B00" : "#ef4444"} />
           </div>
         </FadeUp>
 
-        <FadeUp index={5}>
+        <FadeUp index={6}>
           <Section>{t("section.openCampaign")}</Section>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <MetricsCard
@@ -391,7 +447,7 @@ export default function Dashboard({ data, onReset }: Props) {
           </div>
         </FadeUp>
 
-        <FadeUp index={6}>
+        <FadeUp index={7}>
           <Section>{t("section.charts")}</Section>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <ChartCard title={t("chart.cumPnl")} subtitle={t("chart.cumPnlSub")} className="lg:col-span-2">
@@ -403,7 +459,7 @@ export default function Dashboard({ data, onReset }: Props) {
           </div>
         </FadeUp>
 
-        <FadeUp index={7} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <FadeUp index={8} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <ChartCard title={t("chart.dailyVolume")} subtitle={t("chart.dailyVolumeSub")}>
             <VolumeChart data={chartData} />
           </ChartCard>
@@ -412,12 +468,12 @@ export default function Dashboard({ data, onReset }: Props) {
           </ChartCard>
         </FadeUp>
 
-        <FadeUp index={8}>
+        <FadeUp index={9}>
           <Section>{t("section.positions")}</Section>
           <PositionsTable positions={historyPositions} />
         </FadeUp>
 
-        <FadeUp index={9}>
+        <FadeUp index={10}>
           <Section>{t("section.tradeHistory")}</Section>
           <TradesTable trades={processedTrades} />
         </FadeUp>
@@ -480,6 +536,8 @@ export default function Dashboard({ data, onReset }: Props) {
             <StatRow label={t("row.trades")} value={metrics.trades.toLocaleString()} />
             <StatRow label={t("row.winRate")} value={formatPercent(metrics.winRate)} color={metrics.winRate >= 50 ? "#22c55e" : "#ef4444"} />
             <StatRow label={t("row.netPnl")}  value={formatUsd(metrics.netPnl, { signed: true })} color={metrics.netPnl >= 0 ? "#FF6B00" : "#ef4444"} />
+            <StatRow label={t("stat.grossProfit")} value={formatUsd(metrics.grossProfit, { signed: true })} color="#22c55e" />
+            <StatRow label={t("stat.pnlAfterFees")} value={formatUsd(metrics.pnlAfterFees, { signed: true })} color={metrics.pnlAfterFees >= 0 ? "#22c55e" : "#ef4444"} />
           </div>
 
           {/* Spot breakdown */}

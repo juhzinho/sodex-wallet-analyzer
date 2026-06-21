@@ -289,6 +289,11 @@ export interface WalletMetrics {
   longestPositionDuration: number;
   // Campaign-day trade counts (day = 21:00 BRT → 21:00 BRT)
   tradesToday: number;
+  // Profit breakdown (from closed positions)
+  grossProfit: number;       // sum of all winning position PnLs
+  grossLoss: number;         // sum of all losing position PnLs (negative)
+  pnlAfterFees: number;      // realizedPnl − trading fees
+  netPnlAfterFees: number;   // netPnl − trading fees (incl. unrealised + funding)
 }
 
 export interface ProcessedTrade {
