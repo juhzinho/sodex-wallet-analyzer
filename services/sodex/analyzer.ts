@@ -324,6 +324,9 @@ function buildMetrics(
       if (pnl > 0) wins.push(pnl);
       else if (pnl < 0) losses.push(pnl);
     }
+    console.log("[DEBUG] posHistory length:", posHistory.length);
+    console.log("[DEBUG] realizedPnl from posHistory:", realizedPnl);
+    console.log("[DEBUG] wins:", wins.length, "losses:", losses.length);
   } else {
     // Fallback: use reconstructed positions from fills
     for (const p of closedPositions) {
