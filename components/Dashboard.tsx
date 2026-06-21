@@ -402,12 +402,12 @@ export default function Dashboard({ data, onReset }: Props) {
               <div className="absolute inset-0 bg-orange-500/10 rounded-xl blur-xl" />
               <MetricsCard
                 index={1}
-                title={t("card.netPnlAfterFees")}
-                rawValue={metrics.netPnlAfterFees}
-                displayValue={formatUsd(metrics.netPnlAfterFees, { compact: true, signed: true })}
-                subValue={t("card.netPnlAfterFeesSub")}
-                trend={netAfterFeesTrend}
-                icon={<I.Profit />}
+                title={t("card.realisedPnl")}
+                rawValue={metrics.realizedPnl}
+                displayValue={formatUsd(metrics.realizedPnl, { compact: true, signed: true })}
+                subValue={t("card.realisedPnlSub", { v: formatUsd(metrics.netPnl, { compact: true, signed: true }) })}
+                trend={pnlTrend}
+                icon={<I.Pnl />}
                 className="relative col-span-1 sm:col-span-1 border border-orange-500/30"
               />
             </div>
