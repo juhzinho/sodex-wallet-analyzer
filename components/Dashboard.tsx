@@ -383,6 +383,37 @@ export default function Dashboard({ data, onReset }: Props) {
           </div>
         </FadeUp>
 
+        <FadeUp index={4.5}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-green-500/10 rounded-xl blur-xl" />
+              <MetricsCard
+                index={0}
+                title={t("stat.grossProfit")}
+                rawValue={metrics.grossProfit}
+                displayValue={formatUsd(metrics.grossProfit, { compact: true, signed: true })}
+                subValue={t("card.grossProfitSub", { n: metrics.winningPositions.toLocaleString() })}
+                trend={profitTrend}
+                icon={<I.Profit />}
+                className="relative col-span-1 sm:col-span-1 border border-green-500/30"
+              />
+            </div>
+            <div className="relative">
+              <div className="absolute inset-0 bg-orange-500/10 rounded-xl blur-xl" />
+              <MetricsCard
+                index={1}
+                title={t("card.netPnlAfterFees")}
+                rawValue={metrics.netPnlAfterFees}
+                displayValue={formatUsd(metrics.netPnlAfterFees, { compact: true, signed: true })}
+                subValue={t("card.netPnlAfterFeesSub")}
+                trend={netAfterFeesTrend}
+                icon={<I.Profit />}
+                className="relative col-span-1 sm:col-span-1 border border-orange-500/30"
+              />
+            </div>
+          </div>
+        </FadeUp>
+
         <FadeUp index={5} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="glass-card p-5">
             <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">{t("stat.performance")}</p>
