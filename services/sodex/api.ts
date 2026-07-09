@@ -32,7 +32,7 @@ const LIMIT = {
 } as const;
 
 const MAX_RETRIES = 12;
-const PAGE_DELAY_MS = 25;
+const PAGE_DELAY_MS = 10;
 const DEFAULT_LOOKBACK_DAYS = 31;
 const EARLIEST_MS = Date.UTC(2024, 0, 1);
 
@@ -56,7 +56,7 @@ export function fullHistoryEnabled(): boolean {
 
 function fetchConcurrency(): number {
   const raw = process.env.SODEX_FETCH_CONCURRENCY;
-  const n = raw ? parseInt(raw, 10) : 6;
+  const n = raw ? parseInt(raw, 10) : 8;
   return Number.isFinite(n) && n > 0 ? Math.min(n, 8) : 6;
 }
 
@@ -128,6 +128,24 @@ function extractId(item: unknown): string {
   );
 }
 
+function extractPositionId(item: unknown): string {
+  const o = item as Record<string, unknown>;
+  if (o.id != null) return String(o.id);
+  return extractId(item);
+}
+
+function dedupePositions(items: ApiPositionHistory[]): ApiPositionHistory[] {
+  const seen = new Set<string>();
+  const out: ApiPositionHistory[] = [];
+  for (const item of items) {
+    const id = extractPositionId(item);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(item);
+  }
+  return out;
+}
+
 function dedupeById<T>(items: T[]): T[] {
   const seen = new Set<string>();
   const out: T[] = [];
@@ -140,7 +158,7 @@ function dedupeById<T>(items: T[]): T[] {
   return out;
 }
 
-/** Sequential backward pagination — best for sparse endpoints (positions). */
+/** Sequential backward pagination. */
 async function fetchAllSequential<T>(
   url: string,
   limit: number,
@@ -239,13 +257,14 @@ async function fetchWindowPages<T>(
   return all;
 }
 
-/** Parallel windows — only for full-history trade backfill. */
+/** Parallel time-window fetch for large histories. */
 async function fetchAllParallelFull<T>(
   url: string,
   limit: number,
   labelKey: TranslationKey,
   locale: Locale,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  dedupe: (items: T[]) => T[] = dedupeById
 ): Promise<T[]> {
   const now = Date.now();
   const windows = buildTimeWindows(EARLIEST_MS, now);
@@ -272,7 +291,7 @@ async function fetchAllParallelFull<T>(
     return batch;
   });
 
-  return dedupeById(chunks.flat());
+  return dedupe(chunks.flat());
 }
 
 async function fetchOne<T>(url: string): Promise<T> {
@@ -341,18 +360,30 @@ export function fetchTrades(
   return fetchTradesRecent(address, onProgress, locale);
 }
 
-/** Always sequential — ~6 pages for 2.5k positions vs 44 parallel windows. */
+/** Full history: parallel windows. Fast mode: sequential recent only. */
 export function fetchPositionHistory(
   address: string,
   onProgress?: ProgressCallback,
   locale: Locale = "en"
 ): Promise<ApiPositionHistory[]> {
+  const url = `${BASE}/accounts/${address}/positions/history`;
+  if (fullHistoryEnabled()) {
+    return fetchAllParallelFull<ApiPositionHistory>(
+      url,
+      LIMIT.positions,
+      "progress.positions",
+      locale,
+      onProgress,
+      dedupePositions
+    );
+  }
   return fetchAllSequential<ApiPositionHistory>(
-    `${BASE}/accounts/${address}/positions/history`,
+    url,
     LIMIT.positions,
     "progress.positions",
     locale,
-    onProgress
+    onProgress,
+    recentTradeRange()
   );
 }
 
@@ -361,14 +392,23 @@ export function fetchFundingHistory(
   onProgress?: ProgressCallback,
   locale: Locale = "en"
 ): Promise<ApiFunding[]> {
-  const range = fastModeEnabled() ? recentTradeRange() : undefined;
-  return fetchAllSequential<ApiFunding>(
-    `${BASE}/accounts/${address}/fundings`,
+  const url = `${BASE}/accounts/${address}/fundings`;
+  if (fastModeEnabled()) {
+    return fetchAllSequential<ApiFunding>(
+      url,
+      LIMIT.fundings,
+      "progress.funding",
+      locale,
+      onProgress,
+      recentTradeRange()
+    );
+  }
+  return fetchAllParallelFull<ApiFunding>(
+    url,
     LIMIT.fundings,
     "progress.funding",
     locale,
-    onProgress,
-    range
+    onProgress
   );
 }
 

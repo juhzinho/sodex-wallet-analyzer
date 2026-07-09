@@ -736,24 +736,17 @@ export async function analyzeWallet(
       : tr(locale, "progress.fastStart")
   );
 
-  // ── Step 1: account state + full position history (fast, ~few pages) ────
-  const [rawPosHistory, state] = await Promise.all([
-    fetchPositionHistory(address, onProgress, locale).catch((e) => {
-      console.error("[sodex] positions/history failed:", (e as Error).message);
-      return [] as ApiPositionHistory[];
-    }),
-    fetchAccountState(address).catch((e) => {
-      console.error("[sodex] state failed:", (e as Error).message);
-      return null as ApiAccountState | null;
-    }),
-  ]);
+  // ── Step 0: account state (instant) ─────────────────────────────────────
+  const state = await fetchAccountState(address).catch((e) => {
+    console.error("[sodex] state failed:", (e as Error).message);
+    return null as ApiAccountState | null;
+  });
 
-  // Partial: PnL, win rate, open positions — available before trades finish
   onPartial?.(
     assembleAnalysis(
       address,
       [],
-      rawPosHistory,
+      [],
       state,
       [],
       [],
@@ -763,8 +756,14 @@ export async function analyzeWallet(
     )
   );
 
-  // ── Step 2: all perps fills (parallel windows when full history) ────────
-  const rawTrades = await fetchTrades(address, onProgress, locale);
+  // ── Step 1: positions + trades in parallel (both use parallel windows) ─
+  const [rawPosHistory, rawTrades] = await Promise.all([
+    fetchPositionHistory(address, onProgress, locale).catch((e) => {
+      console.error("[sodex] positions/history failed:", (e as Error).message);
+      return [] as ApiPositionHistory[];
+    }),
+    fetchTrades(address, onProgress, locale),
+  ]);
 
   onProgress?.(tr(locale, "progress.analysing"));
 
