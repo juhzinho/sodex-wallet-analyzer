@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useWalletAnalysis } from "@/hooks/useWalletAnalysis";
 import { isValidAddress } from "@/lib/utils";
 import { useI18n } from "./I18nProvider";
+import { useRegisterHome } from "./AnalysisNav";
 import WalletInput from "./WalletInput";
 import LoadingState from "./LoadingState";
 import ErrorState from "./ErrorState";
@@ -35,6 +36,8 @@ export default function WalletAnalyzer() {
     router.replace("/", { scroll: false });
     reset();
   }, [reset, router]);
+
+  useRegisterHome(handleReset, state.status !== "idle");
 
   useEffect(() => {
     if (autoStarted.current || state.status !== "idle") return;

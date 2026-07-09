@@ -237,6 +237,9 @@ const en = {
   // Language selector
   "lang.label": "Language",
 
+  "nav.home": "Home",
+  "nav.homeTitle": "Stop analysis and return home",
+
   // Server-streamed progress
   "progress.connecting": "Connecting...",
   "progress.trades": "Fetching trades",
@@ -452,6 +455,9 @@ const ptBR: Dict = {
 
   "lang.label": "Idioma",
 
+  "nav.home": "Início",
+  "nav.homeTitle": "Parar análise e voltar ao início",
+
   "progress.connecting": "Conectando...",
   "progress.trades": "Buscando trades",
   "progress.positions": "Buscando posições",
@@ -662,6 +668,9 @@ const es: Dict = {
   "row.spotShare": "Participación Spot",
 
   "lang.label": "Idioma",
+
+  "nav.home": "Inicio",
+  "nav.homeTitle": "Detener análisis y volver al inicio",
 
   "progress.connecting": "Conectando...",
   "progress.trades": "Obteniendo trades",
