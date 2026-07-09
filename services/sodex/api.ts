@@ -1,8 +1,8 @@
 /**
- * SoDEX API client — parallel time-window fetching for heavy wallets.
+ * SoDEX API client
  *
- * Rate limit: 1 200 weight / minute per IP.
- * History queries: weight ≈ 20 + items/20 (at limit=1000 → ~70 weight/request).
+ * Default: complete wallet history (all trades, positions, spot).
+ * Optional fast mode: SODEX_FAST_MODE=true (last N days of trades only).
  */
 
 import {
@@ -13,7 +13,7 @@ import {
   ApiFunding,
   SoDEXEnvelope,
 } from "@/types";
-import { sleep, normaliseTimestamp } from "@/lib/utils";
+import { sleep, normaliseTimestamp, getLastWeeklyReset } from "@/lib/utils";
 import { poolMap } from "@/lib/concurrency";
 import { Locale, tr, TranslationKey } from "@/lib/i18n";
 
@@ -32,29 +32,38 @@ const LIMIT = {
 } as const;
 
 const MAX_RETRIES = 12;
-const RATE_DELAY_MS = 40;
-const DEFAULT_CHUNK_DAYS = 21;
-const DEFAULT_CONCURRENCY = 5;
+const PAGE_DELAY_MS = 25;
+const DEFAULT_LOOKBACK_DAYS = 31;
 const EARLIEST_MS = Date.UTC(2024, 0, 1);
 
 export type ProgressCallback = (message: string) => void;
 
-function chunkDays(): number {
-  const raw = process.env.SODEX_TIME_CHUNK_DAYS;
-  if (!raw) return DEFAULT_CHUNK_DAYS;
+export function tradesLookbackDays(): number {
+  const raw = process.env.SODEX_TRADES_LOOKBACK_DAYS;
+  if (!raw) return DEFAULT_LOOKBACK_DAYS;
   const n = parseInt(raw, 10);
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_CHUNK_DAYS;
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_LOOKBACK_DAYS;
+}
+
+export function fastModeEnabled(): boolean {
+  return process.env.SODEX_FAST_MODE === "true";
+}
+
+/** Complete history is the default. */
+export function fullHistoryEnabled(): boolean {
+  return !fastModeEnabled();
 }
 
 function fetchConcurrency(): number {
   const raw = process.env.SODEX_FETCH_CONCURRENCY;
-  if (!raw) return DEFAULT_CONCURRENCY;
-  const n = parseInt(raw, 10);
-  return Number.isFinite(n) && n > 0 ? Math.min(n, 8) : DEFAULT_CONCURRENCY;
+  const n = raw ? parseInt(raw, 10) : 6;
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 8) : 6;
 }
 
-function parallelFetchEnabled(): boolean {
-  return process.env.SODEX_PARALLEL_FETCH !== "false";
+function chunkDays(): number {
+  const raw = process.env.SODEX_TIME_CHUNK_DAYS;
+  const n = raw ? parseInt(raw, 10) : 30;
+  return Number.isFinite(n) && n > 0 ? n : 30;
 }
 
 // ─── Core fetch ───────────────────────────────────────────────────────────
@@ -71,20 +80,17 @@ async function apiFetch<T>(url: string): Promise<SoDEXEnvelope<T>> {
 
       if (res.status === 429) {
         const after = res.headers.get("Retry-After");
-        await sleep(after ? parseInt(after) * 1000 : 3000 * (attempt + 1));
+        await sleep(after ? parseInt(after) * 1000 : 2000 * (attempt + 1));
         continue;
       }
 
       if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
 
       const envelope = (await res.json()) as SoDEXEnvelope<T>;
-
       if (envelope.code === 0) return envelope;
 
       if (envelope.code === -1) {
-        const base = Math.min(300 * Math.pow(1.8, attempt), 5000);
-        const wait = base + Math.random() * 500;
-        console.warn(`[sodex] code=-1 (attempt ${attempt + 1}/${MAX_RETRIES}), retry in ${Math.round(wait)}ms`);
+        const wait = Math.min(300 * Math.pow(1.8, attempt), 4000) + Math.random() * 300;
         await sleep(wait);
         lastErr = new Error(`code=-1: ${envelope.msg ?? "intermittent server error"}`);
         continue;
@@ -95,8 +101,7 @@ async function apiFetch<T>(url: string): Promise<SoDEXEnvelope<T>> {
       if (err instanceof Error && err.message.startsWith("SoDEX error code=")) throw err;
       lastErr = err instanceof Error ? err : new Error(String(err));
       if (attempt < MAX_RETRIES - 1) {
-        const base = Math.min(300 * Math.pow(1.8, attempt), 5000);
-        await sleep(base + Math.random() * 500);
+        await sleep(Math.min(300 * Math.pow(1.8, attempt), 4000));
       }
     }
   }
@@ -118,7 +123,7 @@ function extractId(item: unknown): string {
   const o = item as Record<string, unknown>;
   return String(
     o.tradeID ?? o.id ?? o.tid ?? o.tradeId ??
-    o.positionID ?? o.orderID ??
+    o.positionID ?? o.orderID ?? o.id ??
     `${extractTs(item)}-${o.symbol ?? o.coin ?? ""}-${o.price ?? ""}-${o.quantity ?? o.size ?? ""}`
   );
 }
@@ -135,18 +140,69 @@ function dedupeById<T>(items: T[]): T[] {
   return out;
 }
 
-function buildTimeWindows(nowMs: number): Array<{ start: number; end: number }> {
+/** Sequential backward pagination — best for sparse endpoints (positions). */
+async function fetchAllSequential<T>(
+  url: string,
+  limit: number,
+  labelKey: TranslationKey,
+  locale: Locale,
+  onProgress?: ProgressCallback,
+  range?: { startTime: number; endTime: number }
+): Promise<T[]> {
+  const all: T[] = [];
+  let endTime = range?.endTime;
+  let prevMinTs = Infinity;
+  let page = 0;
+  const label = tr(locale, labelKey);
+
+  for (;;) {
+    page++;
+    onProgress?.(
+      tr(locale, "progress.page", {
+        label,
+        page,
+        count: all.length,
+      })
+    );
+
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (range) params.set("startTime", String(range.startTime));
+    if (endTime !== undefined) params.set("endTime", String(endTime));
+
+    const batch = (await apiFetch<T>(`${url}?${params}`)).data ?? [];
+    if (!batch.length) break;
+
+    all.push(...batch);
+    if (batch.length < limit) break;
+
+    const timestamps = batch.map(extractTs).filter((t) => t > 0);
+    if (!timestamps.length) break;
+
+    const minTs = Math.min(...timestamps);
+    if (minTs >= prevMinTs) break;
+    if (range && minTs <= range.startTime) break;
+
+    prevMinTs = minTs;
+    endTime = minTs - 1;
+    await sleep(PAGE_DELAY_MS);
+  }
+
+  return all;
+}
+
+function buildTimeWindows(
+  startMs: number,
+  endMs: number
+): Array<{ start: number; end: number }> {
   const chunkMs = chunkDays() * 86_400_000;
   const windows: Array<{ start: number; end: number }> = [];
-  for (let end = nowMs; end > EARLIEST_MS; end -= chunkMs) {
-    const start = Math.max(EARLIEST_MS, end - chunkMs);
-    windows.push({ start, end });
+  for (let end = endMs; end > startMs; end -= chunkMs) {
+    windows.push({ start: Math.max(startMs, end - chunkMs), end });
   }
   return windows;
 }
 
-/** Paginate backwards inside a fixed [startTime, endTime] window. */
-async function fetchTimeWindow<T>(
+async function fetchWindowPages<T>(
   url: string,
   limit: number,
   startTime: number,
@@ -177,60 +233,14 @@ async function fetchTimeWindow<T>(
 
     prevMinTs = minTs;
     end = minTs - 1;
-    await sleep(RATE_DELAY_MS);
+    await sleep(PAGE_DELAY_MS);
   }
 
   return all;
 }
 
-/** Legacy sequential paginator (fallback). */
-async function fetchAllSequential<T>(
-  url: string,
-  limit: number,
-  labelKey: TranslationKey,
-  locale: Locale,
-  onProgress?: ProgressCallback
-): Promise<T[]> {
-  const all: T[] = [];
-  let endTime: number | undefined;
-  let prevMinTs = Infinity;
-  let page = 0;
-
-  for (;;) {
-    page++;
-    onProgress?.(
-      tr(locale, "progress.page", {
-        label: tr(locale, labelKey),
-        page,
-        count: all.length,
-      })
-    );
-
-    const params = new URLSearchParams({ limit: String(limit) });
-    if (endTime !== undefined) params.set("endTime", String(endTime));
-
-    const batch = (await apiFetch<T>(`${url}?${params}`)).data ?? [];
-    if (!batch.length) break;
-
-    all.push(...batch);
-    if (batch.length < limit) break;
-
-    const timestamps = batch.map(extractTs).filter((t) => t > 0);
-    if (!timestamps.length) break;
-
-    const minTs = Math.min(...timestamps);
-    if (minTs >= prevMinTs) break;
-
-    prevMinTs = minTs;
-    endTime = minTs - 1;
-    await sleep(RATE_DELAY_MS);
-  }
-
-  return all;
-}
-
-/** Parallel time-window fetch — ~5–8× faster for wallets with 50k+ fills. */
-async function fetchAllParallel<T>(
+/** Parallel windows — only for full-history trade backfill. */
+async function fetchAllParallelFull<T>(
   url: string,
   limit: number,
   labelKey: TranslationKey,
@@ -238,51 +248,31 @@ async function fetchAllParallel<T>(
   onProgress?: ProgressCallback
 ): Promise<T[]> {
   const now = Date.now();
-  const windows = buildTimeWindows(now);
+  const windows = buildTimeWindows(EARLIEST_MS, now);
   const label = tr(locale, labelKey);
-  let doneWindows = 0;
-  let totalRecords = 0;
+  let done = 0;
+  let count = 0;
 
   onProgress?.(
-    tr(locale, "progress.parallelStart", {
-      label,
-      windows: windows.length,
-    })
+    tr(locale, "progress.parallelStart", { label, windows: windows.length })
   );
 
-  const chunks = await poolMap(
-    windows,
-    fetchConcurrency(),
-    async (win) => {
-      const batch = await fetchTimeWindow<T>(url, limit, win.start, win.end);
-      doneWindows++;
-      totalRecords += batch.length;
-      onProgress?.(
-        tr(locale, "progress.parallel", {
-          label,
-          done: doneWindows,
-          total: windows.length,
-          count: totalRecords,
-        })
-      );
-      return batch;
-    }
-  );
+  const chunks = await poolMap(windows, fetchConcurrency(), async (win) => {
+    const batch = await fetchWindowPages<T>(url, limit, win.start, win.end);
+    done++;
+    count += batch.length;
+    onProgress?.(
+      tr(locale, "progress.parallel", {
+        label,
+        done,
+        total: windows.length,
+        count,
+      })
+    );
+    return batch;
+  });
 
   return dedupeById(chunks.flat());
-}
-
-async function fetchAllTimeBased<T>(
-  url: string,
-  limit: number,
-  labelKey: TranslationKey,
-  locale: Locale,
-  onProgress?: ProgressCallback
-): Promise<T[]> {
-  if (parallelFetchEnabled()) {
-    return fetchAllParallel(url, limit, labelKey, locale, onProgress);
-  }
-  return fetchAllSequential(url, limit, labelKey, locale, onProgress);
 }
 
 async function fetchOne<T>(url: string): Promise<T> {
@@ -291,21 +281,47 @@ async function fetchOne<T>(url: string): Promise<T> {
   return (envelope.data as unknown as T) ?? ({} as T);
 }
 
-/** Quick probe — returns true if the account has any records on this endpoint. */
 async function hasAnyRecords(url: string): Promise<boolean> {
-  const params = new URLSearchParams({ limit: "1" });
-  const batch = (await apiFetch<unknown>(`${url}?${params}`)).data ?? [];
+  const batch = (await apiFetch<unknown>(`${url}?${new URLSearchParams({ limit: "1" })}`)).data ?? [];
   return batch.length > 0;
+}
+
+function recentTradeRange(): { startTime: number; endTime: number } {
+  const endTime = Date.now();
+  const startTime = endTime - tradesLookbackDays() * 86_400_000;
+  return { startTime, endTime };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────
 
-export function fetchTrades(
+/** Recent perps fills (default: last 31 days — covers campaign + monthly). */
+export function fetchTradesRecent(
   address: string,
   onProgress?: ProgressCallback,
   locale: Locale = "en"
 ): Promise<ApiTrade[]> {
-  return fetchAllTimeBased<ApiTrade>(
+  const range = recentTradeRange();
+  onProgress?.(
+    tr(locale, "progress.tradesRecent", { days: tradesLookbackDays() })
+  );
+  return fetchAllSequential<ApiTrade>(
+    `${BASE}/accounts/${address}/trades`,
+    LIMIT.trades,
+    "progress.trades",
+    locale,
+    onProgress,
+    range
+  );
+}
+
+/** Full perps history — slow, opt-in only. */
+export function fetchTradesFull(
+  address: string,
+  onProgress?: ProgressCallback,
+  locale: Locale = "en"
+): Promise<ApiTrade[]> {
+  onProgress?.(tr(locale, "progress.tradesFull"));
+  return fetchAllParallelFull<ApiTrade>(
     `${BASE}/accounts/${address}/trades`,
     LIMIT.trades,
     "progress.trades",
@@ -314,12 +330,24 @@ export function fetchTrades(
   );
 }
 
+export function fetchTrades(
+  address: string,
+  onProgress?: ProgressCallback,
+  locale: Locale = "en"
+): Promise<ApiTrade[]> {
+  if (fullHistoryEnabled()) {
+    return fetchTradesFull(address, onProgress, locale);
+  }
+  return fetchTradesRecent(address, onProgress, locale);
+}
+
+/** Always sequential — ~6 pages for 2.5k positions vs 44 parallel windows. */
 export function fetchPositionHistory(
   address: string,
   onProgress?: ProgressCallback,
   locale: Locale = "en"
 ): Promise<ApiPositionHistory[]> {
-  return fetchAllTimeBased<ApiPositionHistory>(
+  return fetchAllSequential<ApiPositionHistory>(
     `${BASE}/accounts/${address}/positions/history`,
     LIMIT.positions,
     "progress.positions",
@@ -333,12 +361,14 @@ export function fetchFundingHistory(
   onProgress?: ProgressCallback,
   locale: Locale = "en"
 ): Promise<ApiFunding[]> {
-  return fetchAllTimeBased<ApiFunding>(
+  const range = fastModeEnabled() ? recentTradeRange() : undefined;
+  return fetchAllSequential<ApiFunding>(
     `${BASE}/accounts/${address}/fundings`,
     LIMIT.fundings,
     "progress.funding",
     locale,
-    onProgress
+    onProgress,
+    range
   );
 }
 
@@ -346,12 +376,29 @@ export function fetchAccountState(address: string): Promise<ApiAccountState> {
   return fetchOne<ApiAccountState>(`${BASE}/accounts/${address}/state`);
 }
 
-export function fetchSpotTrades(
+export function fetchSpotTradesRecent(
   address: string,
   onProgress?: ProgressCallback,
   locale: Locale = "en"
 ): Promise<ApiTrade[]> {
-  return fetchAllTimeBased<ApiTrade>(
+  const range = recentTradeRange();
+  return fetchAllSequential<ApiTrade>(
+    `${SPOT_BASE}/accounts/${address}/trades`,
+    LIMIT.trades,
+    "progress.spot",
+    locale,
+    onProgress,
+    range
+  );
+}
+
+export function fetchSpotTradesFull(
+  address: string,
+  onProgress?: ProgressCallback,
+  locale: Locale = "en"
+): Promise<ApiTrade[]> {
+  onProgress?.(tr(locale, "progress.spotFull"));
+  return fetchAllParallelFull<ApiTrade>(
     `${SPOT_BASE}/accounts/${address}/trades`,
     LIMIT.trades,
     "progress.spot",
@@ -360,16 +407,18 @@ export function fetchSpotTrades(
   );
 }
 
-/** Skip full spot pagination when the account has no spot activity. */
 export function fetchSpotTradesIfAny(
   address: string,
   onProgress?: ProgressCallback,
   locale: Locale = "en"
 ): Promise<ApiTrade[]> {
   const url = `${SPOT_BASE}/accounts/${address}/trades`;
-  return hasAnyRecords(url).then((has) =>
-    has ? fetchSpotTrades(address, onProgress, locale) : []
-  );
+  return hasAnyRecords(url).then((has) => {
+    if (!has) return [];
+    return fullHistoryEnabled()
+      ? fetchSpotTradesFull(address, onProgress, locale)
+      : fetchSpotTradesRecent(address, onProgress, locale);
+  });
 }
 
 export function fetchSpotOrderHistory(
@@ -377,7 +426,7 @@ export function fetchSpotOrderHistory(
   onProgress?: ProgressCallback,
   locale: Locale = "en"
 ): Promise<ApiOrder[]> {
-  return fetchAllTimeBased<ApiOrder>(
+  return fetchAllSequential<ApiOrder>(
     `${SPOT_BASE}/accounts/${address}/orders/history`,
     LIMIT.orders,
     "progress.spot",
@@ -385,3 +434,6 @@ export function fetchSpotOrderHistory(
     onProgress
   );
 }
+
+/** Export for tests / tuning. */
+export { getLastWeeklyReset };

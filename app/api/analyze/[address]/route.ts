@@ -6,10 +6,9 @@ import { ProgressEvent } from "@/types";
 import { getCachedAnalysis, setCachedAnalysis } from "@/lib/analysis-cache";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
-// Heavy wallets (100k+ fills) need headroom — parallel fetch typically finishes in 2–4 min.
 export const maxDuration = 300;
 
-const KEEPALIVE_MS = 12_000;
+const KEEPALIVE_MS = 8_000;
 
 export async function GET(
   req: NextRequest,
@@ -68,7 +67,7 @@ export async function GET(
           controller.enqueue(encoder.encode(": keepalive\n\n"));
           send({ type: "progress", message: lastProgress });
         } catch {
-          // stream closed
+          // closed
         }
       }, KEEPALIVE_MS);
 
@@ -89,7 +88,10 @@ export async function GET(
             lastProgress = message;
             send({ type: "progress", message });
           },
-          locale
+          locale,
+          (partial) => {
+            send({ type: "partial", data: partial });
+          }
         );
         setCachedAnalysis(normalized, analysis);
         send({ type: "complete", data: analysis });

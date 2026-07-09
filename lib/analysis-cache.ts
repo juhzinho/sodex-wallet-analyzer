@@ -7,7 +7,7 @@ interface CacheEntry {
 
 const store = new Map<string, CacheEntry>();
 
-const DEFAULT_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_TTL_MS = 15 * 60 * 1000;
 
 function ttlMs(): number {
   const raw = process.env.ANALYSIS_CACHE_TTL_MS;

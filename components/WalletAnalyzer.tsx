@@ -50,18 +50,29 @@ export default function WalletAnalyzer() {
     <div>
       <div
         className={
-          state.status !== "idle" && state.status !== "loading"
+          state.status !== "idle" &&
+          state.status !== "loading" &&
+          state.status !== "enriching"
             ? "opacity-60 pointer-events-none"
             : ""
         }
       >
         <WalletInput
           onSubmit={handleAnalyze}
-          isLoading={state.status === "loading"}
+          isLoading={state.status === "loading" || state.status === "enriching"}
         />
       </div>
 
       {state.status === "loading" && <LoadingState progress={state.progress} />}
+
+      {state.status === "enriching" && state.data && (
+        <>
+          <div className="mb-4 px-4 py-2 rounded-lg text-center text-[11px] font-orbitron tracking-wider text-[#FF6B00] border border-[rgba(255,107,0,0.25)] bg-[rgba(255,107,0,0.06)]">
+            {state.progress}
+          </div>
+          <Dashboard data={state.data} onReset={handleReset} />
+        </>
+      )}
 
       {state.status === "error" && (
         <ErrorState

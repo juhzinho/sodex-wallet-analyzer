@@ -371,7 +371,7 @@ export interface LongShortData {
 
 // ─── Application State ───────────────────────────────────────────────────
 
-export type AnalysisStatus = "idle" | "loading" | "success" | "error";
+export type AnalysisStatus = "idle" | "loading" | "success" | "error" | "enriching";
 
 // ─── Spot metrics (no PnL/positions — just volume, fees, trade counts) ───
 
@@ -414,11 +414,15 @@ export interface FullAnalysis {
   totalTrades: number;
 
   fetchedAt: number;
+
+  /** True when trade volume/charts use a recent window, not all-time fills. */
+  fullHistory: boolean;
+  tradesLookbackDays: number;
 }
 
 // SSE progress event streamed from the API route
 export interface ProgressEvent {
-  type: "progress" | "complete" | "error";
+  type: "progress" | "partial" | "complete" | "error";
   message?: string;   // human-readable status text
   data?: FullAnalysis;
   error?: string;

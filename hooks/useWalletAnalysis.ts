@@ -4,26 +4,22 @@ import { useState, useCallback, useRef } from "react";
 import { AnalysisState, ProgressEvent } from "@/types";
 import { Locale, tr } from "@/lib/i18n";
 
-function parseSseChunk(buffer: string): {
-  events: ProgressEvent[];
-  rest: string;
-} {
+function parseSseBuffer(buffer: string): ProgressEvent[] {
   const events: ProgressEvent[] = [];
-  const parts = buffer.split("\n\n");
-  const rest = parts.pop() ?? "";
 
-  for (const part of parts) {
+  for (const part of buffer.split("\n\n")) {
+    if (!part.trim()) continue;
     for (const line of part.split("\n")) {
       if (!line.startsWith("data: ")) continue;
       try {
         events.push(JSON.parse(line.slice(6)) as ProgressEvent);
       } catch {
-        // ignore malformed chunks
+        // ignore malformed
       }
     }
   }
 
-  return { events, rest };
+  return events;
 }
 
 export function useWalletAnalysis() {
@@ -48,6 +44,36 @@ export function useWalletAnalysis() {
       progress: tr(locale, "progress.connecting"),
     });
 
+    const handleEvent = (msg: ProgressEvent) => {
+      if (msg.type === "progress") {
+        setState((prev) => ({
+          ...prev,
+          progress: msg.message ?? prev.progress,
+        }));
+      } else if (msg.type === "partial" && msg.data) {
+        setState({
+          status: "enriching",
+          data: msg.data,
+          error: null,
+          progress: tr(locale, "progress.enriching"),
+        });
+      } else if (msg.type === "complete" && msg.data) {
+        setState({
+          status: "success",
+          data: msg.data,
+          error: null,
+          progress: null,
+        });
+      } else if (msg.type === "error") {
+        setState({
+          status: "error",
+          data: null,
+          error: msg.error ?? tr(locale, "error.unknown"),
+          progress: null,
+        });
+      }
+    };
+
     try {
       const res = await fetch(
         `/api/analyze/${address}?lang=${encodeURIComponent(locale)}`,
@@ -61,45 +87,41 @@ export function useWalletAnalysis() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let finished = false;
+      let gotComplete = false;
+      let gotPartial = false;
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const { events, rest } = parseSseChunk(buffer);
-        buffer = rest;
-
-        for (const msg of events) {
-          if (msg.type === "progress") {
-            setState((prev) => ({
-              ...prev,
-              progress: msg.message ?? null,
-            }));
-          } else if (msg.type === "complete" && msg.data) {
-            finished = true;
-            setState({
-              status: "success",
-              data: msg.data,
-              error: null,
-              progress: null,
-            });
-          } else if (msg.type === "error") {
-            finished = true;
-            setState({
-              status: "error",
-              data: null,
-              error: msg.error ?? tr(locale, "error.unknown"),
-              progress: null,
-            });
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() ?? "";
+          for (const part of parts) {
+            for (const msg of parseSseBuffer(part + "\n\n")) {
+              handleEvent(msg);
+              if (msg.type === "complete") gotComplete = true;
+              if (msg.type === "partial") gotPartial = true;
+            }
           }
+        }
+
+        if (done) {
+          // Flush remaining buffer (fixes lost "complete" on last chunk)
+          if (buffer.trim()) {
+            for (const msg of parseSseBuffer(buffer)) {
+              handleEvent(msg);
+              if (msg.type === "complete") gotComplete = true;
+              if (msg.type === "partial") gotPartial = true;
+            }
+          }
+          break;
         }
       }
 
-      if (!finished) {
+      if (!gotComplete && !gotPartial) {
         setState((prev) =>
-          prev.status === "loading"
+          prev.status === "loading" || prev.status === "enriching"
             ? {
                 status: "error",
                 data: null,
@@ -108,11 +130,18 @@ export function useWalletAnalysis() {
               }
             : prev
         );
+      } else if (gotPartial && !gotComplete) {
+        // Partial arrived but stream ended — treat partial as success
+        setState((prev) =>
+          prev.data
+            ? { ...prev, status: "success", progress: null }
+            : prev
+        );
       }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       setState((prev) =>
-        prev.status === "loading"
+        prev.status === "loading" || prev.status === "enriching"
           ? {
               status: "error",
               data: null,

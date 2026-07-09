@@ -90,6 +90,8 @@ describe("analysis cache", () => {
       totalFees: 0,
       totalTrades: 0,
       fetchedAt: Date.now(),
+      fullHistory: true,
+      tradesLookbackDays: 31,
     };
     setCachedAnalysis(addr, mock);
     expect(getCachedAnalysis(addr)?.metrics.wallet).toBe(addr);

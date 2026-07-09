@@ -3,8 +3,9 @@ import {
   fetchAccountState,
   fetchPositionHistory,
   fetchFundingHistory,
-  fetchSpotTrades,
   fetchSpotTradesIfAny,
+  fullHistoryEnabled,
+  tradesLookbackDays,
   ProgressCallback,
 } from "./api";
 import {
@@ -651,44 +652,19 @@ function buildSpotMetrics(spotTrades: ProcessedTrade[]): SpotMetrics {
   };
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────
+// ─── Assemble FullAnalysis from raw API data ─────────────────────────────
 
-export async function analyzeWallet(
+function assembleAnalysis(
   address: string,
-  onProgress?: ProgressCallback,
-  locale: Locale = "en"
-): Promise<FullAnalysis> {
-  const fetchFunding = shouldFetchFunding();
-
-  // Fetch everything in parallel — trades use parallel time windows internally.
-  const [rawTrades, rawPosHistory, state, rawSpotTrades, rawFundings] =
-    await Promise.all([
-      fetchTrades(address, onProgress, locale),
-      fetchPositionHistory(address, onProgress, locale).catch((e) => {
-        console.error("[sodex] positions/history failed:", (e as Error).message);
-        return [] as ApiPositionHistory[];
-      }),
-      fetchAccountState(address).catch((e) => {
-        console.error("[sodex] state failed:", (e as Error).message);
-        return null as ApiAccountState | null;
-      }),
-      fetchSpotTradesIfAny(address, onProgress, locale).catch((e) => {
-        console.error("[sodex] spot trades failed:", (e as Error).message);
-        return [] as ApiTrade[];
-      }),
-      fetchFunding
-        ? fetchFundingHistory(address, onProgress, locale).catch((e) => {
-            console.error("[sodex] fundings failed:", (e as Error).message);
-            return [] as ApiFunding[];
-          })
-        : Promise.resolve([] as ApiFunding[]),
-    ]);
-
-  const fundingIncluded = fetchFunding;
-
-  onProgress?.(tr(locale, "progress.analysing"));
-
-  // ── Perps ─────────────────────────────────────────────────────────────
+  rawTrades: ApiTrade[],
+  rawPosHistory: ApiPositionHistory[],
+  state: ApiAccountState | null,
+  rawSpotTrades: ApiTrade[],
+  rawFundings: ApiFunding[],
+  fundingIncluded: boolean,
+  fullHistory: boolean,
+  lookbackDays: number
+): FullAnalysis {
   const { processedTrades, positions } = reconstructFromFills(rawTrades);
   const metrics          = buildMetrics(address, processedTrades, positions, rawPosHistory, rawFundings, state, fundingIncluded);
   const chartData        = buildChartData(processedTrades, rawFundings);
@@ -697,13 +673,11 @@ export async function analyzeWallet(
   const historyPositions = buildHistoryPositions(rawPosHistory);
   const campaignDaily    = buildCampaignDaily(processedTrades, Date.now());
 
-  // ── Spot ──────────────────────────────────────────────────────────────
   const spotTrades        = processSpotTrades(rawSpotTrades);
   const spotMetrics       = buildSpotMetrics(spotTrades);
   const spotMarketData    = buildMarketData(spotTrades);
   const spotLongShortData = buildLongShortData(spotTrades);
 
-  // ── Totals ────────────────────────────────────────────────────────────
   const totalVolume = metrics.volume + spotMetrics.volume;
   const totalFees   = metrics.fees   + spotMetrics.fees;
   const totalTrades = metrics.trades + spotMetrics.trades;
@@ -717,7 +691,6 @@ export async function analyzeWallet(
   const historyOut = truncateSorted(historyPositions, MAX_SSE_HISTORY);
 
   return {
-    // Perps
     metrics,
     processedTrades: perpsTradesOut.items,
     totalProcessedTrades: perpsTradesOut.total,
@@ -730,20 +703,104 @@ export async function analyzeWallet(
     chartData,
     marketData,
     longShortData,
-
-    // Spot
     spotMetrics,
     spotTrades: spotTradesOut.items,
     spotTradesTruncated: spotTradesOut.truncated,
     totalSpotTrades: spotTradesOut.total,
     spotMarketData,
     spotLongShortData,
-
-    // Combined
     totalVolume,
     totalFees,
     totalTrades,
-
     fetchedAt: Date.now(),
+    fullHistory,
+    tradesLookbackDays: lookbackDays,
   };
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────
+
+export async function analyzeWallet(
+  address: string,
+  onProgress?: ProgressCallback,
+  locale: Locale = "en",
+  onPartial?: (data: FullAnalysis) => void
+): Promise<FullAnalysis> {
+  const fetchFunding = shouldFetchFunding();
+  const fullHistory = fullHistoryEnabled();
+  const lookbackDays = fullHistory ? 0 : tradesLookbackDays();
+
+  onProgress?.(
+    fullHistory
+      ? tr(locale, "progress.fullScan")
+      : tr(locale, "progress.fastStart")
+  );
+
+  // ── Step 1: account state + full position history (fast, ~few pages) ────
+  const [rawPosHistory, state] = await Promise.all([
+    fetchPositionHistory(address, onProgress, locale).catch((e) => {
+      console.error("[sodex] positions/history failed:", (e as Error).message);
+      return [] as ApiPositionHistory[];
+    }),
+    fetchAccountState(address).catch((e) => {
+      console.error("[sodex] state failed:", (e as Error).message);
+      return null as ApiAccountState | null;
+    }),
+  ]);
+
+  // Partial: PnL, win rate, open positions — available before trades finish
+  onPartial?.(
+    assembleAnalysis(
+      address,
+      [],
+      rawPosHistory,
+      state,
+      [],
+      [],
+      false,
+      fullHistory,
+      lookbackDays
+    )
+  );
+
+  // ── Step 2: all perps fills (parallel windows when full history) ────────
+  const rawTrades = await fetchTrades(address, onProgress, locale);
+
+  onProgress?.(tr(locale, "progress.analysing"));
+
+  onPartial?.(
+    assembleAnalysis(
+      address,
+      rawTrades,
+      rawPosHistory,
+      state,
+      [],
+      [],
+      false,
+      fullHistory,
+      lookbackDays
+    )
+  );
+
+  // ── Step 3: spot + funding ────────────────────────────────────────────
+  onProgress?.(tr(locale, "progress.enriching"));
+
+  const [rawSpotTrades, rawFundings] = await Promise.all([
+    fetchSpotTradesIfAny(address, onProgress, locale).catch(() => [] as ApiTrade[]),
+    fetchFunding
+      ? fetchFundingHistory(address, onProgress, locale).catch(() => [] as ApiFunding[])
+      : Promise.resolve([] as ApiFunding[]),
+  ]);
+
+  return assembleAnalysis(
+    address,
+    rawTrades,
+    rawPosHistory,
+    state,
+    rawSpotTrades,
+    rawFundings,
+    fetchFunding,
+    fullHistory,
+    lookbackDays
+  );
 }
