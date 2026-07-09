@@ -37,6 +37,8 @@ export function useWalletAnalysis() {
     locale: Locale = "en",
     options?: { refresh?: boolean }
   ) => {
+    // Default: always fetch fresh data (skip server cache) unless explicitly disabled.
+    const refresh = options?.refresh !== false;
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
@@ -56,12 +58,13 @@ export function useWalletAnalysis() {
           progress: msg.message ?? prev.progress,
         }));
       } else if (msg.type === "partial" && msg.data) {
-        setState({
+        const partial = msg.data;
+        setState((prev) => ({
           status: "enriching",
-          data: msg.data,
+          data: partial,
           error: null,
-          progress: tr(locale, "progress.enriching"),
-        });
+          progress: prev.progress ?? tr(locale, "progress.enriching"),
+        }));
       } else if (msg.type === "complete" && msg.data) {
         setState({
           status: "success",
@@ -81,7 +84,7 @@ export function useWalletAnalysis() {
 
     try {
       const qs = new URLSearchParams({ lang: locale });
-      if (options?.refresh) qs.set("refresh", "1");
+      if (refresh) qs.set("refresh", "1");
       const res = await fetch(
         `/api/analyze/${address}?${qs.toString()}`,
         { signal: ac.signal, cache: "no-store" }

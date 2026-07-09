@@ -28,11 +28,11 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
   const [inputKey, setInputKey] = useState(0);
 
   const handleAnalyze = useCallback(
-    (address: string, options?: { refresh?: boolean }) => {
+    (address: string) => {
       const addr = address.toLowerCase();
       autoStarted.current = true;
       router.replace(`/?wallet=${encodeURIComponent(addr)}`, { scroll: false });
-      analyze(addr, locale, options);
+      analyze(addr, locale, { refresh: true });
     },
     [analyze, locale, router]
   );
@@ -40,7 +40,7 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
   const handleRefresh = useCallback(() => {
     const addr = state.data?.metrics.wallet;
     if (!addr) return;
-    handleAnalyze(addr, { refresh: true });
+    handleAnalyze(addr);
   }, [state.data?.metrics.wallet, handleAnalyze]);
 
   const isRefreshing =
@@ -68,7 +68,7 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
     if (autoStarted.current || state.status !== "idle") return;
 
     autoStarted.current = true;
-    analyze(wallet.toLowerCase(), locale);
+    analyze(wallet.toLowerCase(), locale, { refresh: true });
   }, [searchParams, locale, analyze, state.status]);
 
   return (
