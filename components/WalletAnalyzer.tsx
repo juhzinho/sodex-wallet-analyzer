@@ -6,7 +6,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useWalletAnalysis } from "@/hooks/useWalletAnalysis";
 import { isValidAddress } from "@/lib/utils";
 import { useI18n } from "./I18nProvider";
-import { useRegisterHome } from "./AnalysisNav";
+import { useAnalysisNavSync } from "./HomeShell";
+import HomeButton from "./HomeButton";
 import WalletInput from "./WalletInput";
 import LoadingState from "./LoadingState";
 import ErrorState from "./ErrorState";
@@ -15,7 +16,11 @@ const Dashboard = dynamic(() => import("./Dashboard"), {
   loading: () => <LoadingState progress={null} />,
 });
 
-export default function WalletAnalyzer() {
+interface Props {
+  onNavChange?: (active: boolean, handler: (() => void) | null) => void;
+}
+
+export default function WalletAnalyzer({ onNavChange }: Props) {
   const { state, analyze, reset } = useWalletAnalysis();
   const { locale, t } = useI18n();
   const searchParams = useSearchParams();
@@ -37,7 +42,8 @@ export default function WalletAnalyzer() {
     reset();
   }, [reset, router]);
 
-  useRegisterHome(handleReset, state.status !== "idle");
+  const analysisActive = state.status !== "idle";
+  useAnalysisNavSync(onNavChange, analysisActive, handleReset);
 
   useEffect(() => {
     if (autoStarted.current || state.status !== "idle") return;
@@ -51,6 +57,12 @@ export default function WalletAnalyzer() {
 
   return (
     <div>
+      {analysisActive && (
+        <div className="flex justify-end mb-4 sm:hidden">
+          <HomeButton onClick={handleReset} variant="prominent" />
+        </div>
+      )}
+
       <div
         className={
           state.status !== "idle" &&
@@ -66,12 +78,15 @@ export default function WalletAnalyzer() {
         />
       </div>
 
-      {state.status === "loading" && <LoadingState progress={state.progress} />}
+      {state.status === "loading" && (
+        <LoadingState progress={state.progress} onCancel={handleReset} />
+      )}
 
       {state.status === "enriching" && state.data && (
         <>
-          <div className="mb-4 px-4 py-2 rounded-lg text-center text-[11px] font-orbitron tracking-wider text-[#FF6B00] border border-[rgba(255,107,0,0.25)] bg-[rgba(255,107,0,0.06)]">
-            {state.progress}
+          <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-2 rounded-lg text-[11px] font-orbitron tracking-wider text-[#FF6B00] border border-[rgba(255,107,0,0.25)] bg-[rgba(255,107,0,0.06)]">
+            <span className="text-center sm:text-left">{state.progress}</span>
+            <HomeButton onClick={handleReset} variant="prominent" className="shrink-0" />
           </div>
           <Dashboard data={state.data} onReset={handleReset} />
         </>

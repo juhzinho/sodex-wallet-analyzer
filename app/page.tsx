@@ -1,8 +1,4 @@
-import { Suspense } from "react";
-import WalletAnalyzer from "@/components/WalletAnalyzer";
-import SiteHeader from "@/components/SiteHeader";
-import { AnalysisNavProvider } from "@/components/AnalysisNav";
-import LoadingState from "@/components/LoadingState";
+import HomeShell from "@/components/HomeShell";
 
 function Background() {
   return (
@@ -33,25 +29,17 @@ function Background() {
 
 export default function Home() {
   return (
-    <AnalysisNavProvider>
-      <div className="relative min-h-screen bg-black">
-        <Background />
+    <div className="relative min-h-screen bg-black">
+      <Background />
 
-        <SiteHeader />
+      <HomeShell />
 
-        <main className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <Suspense fallback={<LoadingState progress={null} />}>
-            <WalletAnalyzer />
-          </Suspense>
-        </main>
-
-        <footer className="relative z-10 border-t border-[rgba(255,107,0,0.08)] mt-20 py-6">
-          <p className="text-center text-[10px] font-orbitron tracking-widest uppercase text-white/15">
-            SoDEX Wallet Analyzer &nbsp;·&nbsp;
-            <span className="text-[rgba(255,107,0,0.4)]">mainnet-gw.sodex.dev</span>
-          </p>
-        </footer>
-      </div>
-    </AnalysisNavProvider>
+      <footer className="relative z-10 border-t border-[rgba(255,107,0,0.08)] mt-20 py-6">
+        <p className="text-center text-[10px] font-orbitron tracking-widest uppercase text-white/15">
+          SoDEX Wallet Analyzer &nbsp;·&nbsp;
+          <span className="text-[rgba(255,107,0,0.4)]">mainnet-gw.sodex.dev</span>
+        </p>
+      </footer>
+    </div>
   );
 }

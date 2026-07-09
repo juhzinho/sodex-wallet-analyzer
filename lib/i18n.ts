@@ -44,6 +44,7 @@ const en = {
   // Loading
   "loading.default": "SCANNING WALLET...",
   "loading.subtitle": "Fetching complete on-chain history",
+  "loading.cancelHint": "Tap Início to stop and return home",
 
   // Error
   "error.title": "Analysis Failed",
@@ -278,6 +279,7 @@ const ptBR: Dict = {
 
   "loading.default": "ESCANEANDO CARTEIRA...",
   "loading.subtitle": "Buscando histórico on-chain completo",
+  "loading.cancelHint": "Toque em Início para parar e voltar",
 
   "error.title": "Falha na Análise",
   "error.retry": "Tentar Novamente",
@@ -492,6 +494,7 @@ const es: Dict = {
 
   "loading.default": "ESCANEANDO CARTERA...",
   "loading.subtitle": "Obteniendo historial on-chain completo",
+  "loading.cancelHint": "Pulsa Inicio para detener y volver",
 
   "error.title": "Análisis Fallido",
   "error.retry": "Reintentar",

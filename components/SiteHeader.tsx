@@ -2,7 +2,6 @@
 
 import LanguageSelector from "./LanguageSelector";
 import HomeButton from "./HomeButton";
-import { useAnalysisNav } from "./AnalysisNav";
 
 function SoDEXLogo() {
   return (
@@ -22,9 +21,12 @@ function SoDEXLogo() {
   );
 }
 
-export default function SiteHeader() {
-  const { showHome, goHome } = useAnalysisNav();
+interface Props {
+  showHome: boolean;
+  onHome: () => void;
+}
 
+export default function SiteHeader({ showHome, onHome }: Props) {
   return (
     <header className="relative z-10 sticky top-0 border-b border-[rgba(255,107,0,0.12)] bg-black/75 backdrop-blur-xl">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -44,7 +46,12 @@ export default function SiteHeader() {
         </div>
 
         <div className="flex items-center gap-3">
-          {showHome && <HomeButton onClick={goHome} />}
+          {showHome && (
+            <HomeButton
+              onClick={onHome}
+              variant="header"
+            />
+          )}
           <LanguageSelector />
           <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[rgba(255,107,0,0.08)] border border-[rgba(255,107,0,0.22)] text-[#FF6B00] text-[10px] font-bold font-orbitron tracking-[0.2em]">
             <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B00] animate-pulse" />
