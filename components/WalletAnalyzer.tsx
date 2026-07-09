@@ -28,14 +28,23 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
   const [inputKey, setInputKey] = useState(0);
 
   const handleAnalyze = useCallback(
-    (address: string) => {
+    (address: string, options?: { refresh?: boolean }) => {
       const addr = address.toLowerCase();
       autoStarted.current = true;
       router.replace(`/?wallet=${encodeURIComponent(addr)}`, { scroll: false });
-      analyze(addr, locale);
+      analyze(addr, locale, options);
     },
     [analyze, locale, router]
   );
+
+  const handleRefresh = useCallback(() => {
+    const addr = state.data?.metrics.wallet;
+    if (!addr) return;
+    handleAnalyze(addr, { refresh: true });
+  }, [state.data?.metrics.wallet, handleAnalyze]);
+
+  const isRefreshing =
+    state.status === "loading" || state.status === "enriching";
 
   const handleReset = useCallback(() => {
     // Block deep-link auto-start until ?wallet= is cleared from the URL.
@@ -75,7 +84,7 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
       >
         <WalletInput
           key={inputKey}
-          onSubmit={handleAnalyze}
+          onSubmit={(addr) => handleAnalyze(addr)}
           isLoading={state.status === "loading" || state.status === "enriching"}
         />
       </div>
@@ -89,7 +98,12 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
           <div className="mb-4 px-4 py-2 rounded-lg text-center text-[11px] font-orbitron tracking-wider text-[#FF6B00] border border-[rgba(255,107,0,0.25)] bg-[rgba(255,107,0,0.06)]">
             {state.progress}
           </div>
-          <Dashboard data={state.data} onReset={handleReset} />
+          <Dashboard
+            data={state.data}
+            onReset={handleReset}
+            onRefresh={handleRefresh}
+            isRefreshing={isRefreshing}
+          />
         </>
       )}
 
@@ -101,7 +115,12 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
       )}
 
       {state.status === "success" && state.data && (
-        <Dashboard data={state.data} onReset={handleReset} />
+        <Dashboard
+          data={state.data}
+          onReset={handleReset}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+        />
       )}
     </div>
   );

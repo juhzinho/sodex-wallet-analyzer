@@ -32,7 +32,11 @@ export function useWalletAnalysis() {
 
   const abortRef = useRef<AbortController | null>(null);
 
-  const analyze = useCallback(async (address: string, locale: Locale = "en") => {
+  const analyze = useCallback(async (
+    address: string,
+    locale: Locale = "en",
+    options?: { refresh?: boolean }
+  ) => {
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
@@ -76,8 +80,10 @@ export function useWalletAnalysis() {
     };
 
     try {
+      const qs = new URLSearchParams({ lang: locale });
+      if (options?.refresh) qs.set("refresh", "1");
       const res = await fetch(
-        `/api/analyze/${address}?lang=${encodeURIComponent(locale)}`,
+        `/api/analyze/${address}?${qs.toString()}`,
         { signal: ac.signal, cache: "no-store" }
       );
 

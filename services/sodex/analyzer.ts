@@ -209,6 +209,30 @@ export function reconstructFromFills(rawTrades: ApiTrade[]): {
   return { processedTrades, positions };
 }
 
+// ─── Campaign volume windows ─────────────────────────────────────────────
+// Weekly: since last Fri 21:00 BRT (= Sat 00:00 UTC) snapshot reset.
+// Monthly: rolling last 30 days. All timestamps are ms UTC.
+
+export function sumCampaignVolume(
+  trades: ProcessedTrade[],
+  nowMs: number = Date.now()
+): { weeklyVolume: number; monthlyVolume: number; tradesToday: number } {
+  const weekResetTs = getLastWeeklyReset(nowMs);
+  const monthStartTs = nowMs - 30 * ONE_DAY_MS;
+  const campaignDayStart = getCampaignDayStart(nowMs);
+  let weeklyVolume = 0;
+  let monthlyVolume = 0;
+  let tradesToday = 0;
+
+  for (const t of trades) {
+    if (t.timestamp >= weekResetTs) weeklyVolume += t.volume;
+    if (t.timestamp >= monthStartTs) monthlyVolume += t.volume;
+    if (t.timestamp >= campaignDayStart) tradesToday++;
+  }
+
+  return { weeklyVolume, monthlyVolume, tradesToday };
+}
+
 // ─── Metrics aggregation ──────────────────────────────────────────────────
 
 function buildMetrics(
@@ -228,26 +252,19 @@ function buildMetrics(
   let longTrades = 0;
   let shortTrades = 0;
 
-  // ── Time-windowed volume (campaign tracking) ──
-  // Weekly: since last Fri 21:00 BRT (= Sat 00:00 UTC) snapshot reset.
-  // Monthly: rolling last 30 days. All timestamps are ms UTC.
-  const now = Date.now();
-  const weekResetTs = getLastWeeklyReset(now);
-  const monthStartTs = now - 30 * 24 * 60 * 60 * 1000;
-  const campaignDayStart = getCampaignDayStart(now);
-  let weeklyVolume = 0;
-  let monthlyVolume = 0;
-  let tradesToday = 0;
-
   for (const t of trades) {
     volume += t.volume;
     fees += t.fee;
     if (t.side === "LONG") { longVolume += t.volume; longTrades++; }
     else { shortVolume += t.volume; shortTrades++; }
-    if (t.timestamp >= weekResetTs) weeklyVolume += t.volume;
-    if (t.timestamp >= monthStartTs) monthlyVolume += t.volume;
-    if (t.timestamp >= campaignDayStart) tradesToday++;
   }
+
+  const now = Date.now();
+  const weekResetTs = getLastWeeklyReset(now);
+  const { weeklyVolume, monthlyVolume, tradesToday } = sumCampaignVolume(
+    trades,
+    now
+  );
 
   // ── Open Interest: weekly time-weighted average (SoDEX campaign method) ──
   // OI_twa = Σ(notional_i × ms_open_within_week_i) / 168h
@@ -663,7 +680,8 @@ function assembleAnalysis(
   rawFundings: ApiFunding[],
   fundingIncluded: boolean,
   fullHistory: boolean,
-  lookbackDays: number
+  lookbackDays: number,
+  analysisComplete = true
 ): FullAnalysis {
   const { processedTrades, positions } = reconstructFromFills(rawTrades);
   const metrics          = buildMetrics(address, processedTrades, positions, rawPosHistory, rawFundings, state, fundingIncluded);
@@ -677,6 +695,12 @@ function assembleAnalysis(
   const spotMetrics       = buildSpotMetrics(spotTrades);
   const spotMarketData    = buildMarketData(spotTrades);
   const spotLongShortData = buildLongShortData(spotTrades);
+
+  const now = Date.now();
+  const spotCampaign = sumCampaignVolume(spotTrades, now);
+  metrics.weeklyVolume += spotCampaign.weeklyVolume;
+  metrics.monthlyVolume += spotCampaign.monthlyVolume;
+  metrics.tradesToday += spotCampaign.tradesToday;
 
   const totalVolume = metrics.volume + spotMetrics.volume;
   const totalFees   = metrics.fees   + spotMetrics.fees;
@@ -713,6 +737,8 @@ function assembleAnalysis(
     totalFees,
     totalTrades,
     fetchedAt: Date.now(),
+    fromCache: false,
+    analysisComplete,
     fullHistory,
     tradesLookbackDays: lookbackDays,
   };
@@ -752,7 +778,8 @@ export async function analyzeWallet(
       [],
       false,
       fullHistory,
-      lookbackDays
+      lookbackDays,
+      false
     )
   );
 
@@ -777,7 +804,8 @@ export async function analyzeWallet(
       [],
       false,
       fullHistory,
-      lookbackDays
+      lookbackDays,
+      false
     )
   );
 

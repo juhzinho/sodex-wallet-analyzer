@@ -16,6 +16,7 @@ export async function GET(
 ) {
   const { address } = await params;
   const langParam = req.nextUrl.searchParams.get("lang");
+  const refresh = req.nextUrl.searchParams.get("refresh") === "1";
   const locale: Locale = isLocale(langParam) ? langParam : "en";
   const normalized = address?.toLowerCase();
 
@@ -72,14 +73,16 @@ export async function GET(
       }, KEEPALIVE_MS);
 
       try {
-        const cached = getCachedAnalysis(normalized);
-        if (cached) {
-          send({ type: "progress", message: tr(locale, "progress.cached") });
-          send({
-            type: "complete",
-            data: { ...cached, fetchedAt: Date.now() },
-          });
-          return;
+        if (!refresh) {
+          const cached = getCachedAnalysis(normalized);
+          if (cached) {
+            send({ type: "progress", message: tr(locale, "progress.cached") });
+            send({
+              type: "complete",
+              data: { ...cached, fromCache: true, analysisComplete: true },
+            });
+            return;
+          }
         }
 
         const analysis = await analyzeWallet(

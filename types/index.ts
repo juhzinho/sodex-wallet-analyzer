@@ -414,6 +414,10 @@ export interface FullAnalysis {
   totalTrades: number;
 
   fetchedAt: number;
+  /** True when served from server cache (may be minutes old). */
+  fromCache?: boolean;
+  /** False on SSE partial payloads before spot/funding finish. */
+  analysisComplete?: boolean;
 
   /** True when trade volume/charts use a recent window, not all-time fills. */
   fullHistory: boolean;

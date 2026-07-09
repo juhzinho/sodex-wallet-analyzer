@@ -222,9 +222,14 @@ function TabBar({ active, onChange, counts }: {
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
-interface Props { data: FullAnalysis; onReset: () => void }
+interface Props {
+  data: FullAnalysis;
+  onReset: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+}
 
-export default function Dashboard({ data, onReset }: Props) {
+export default function Dashboard({ data, onReset, onRefresh, isRefreshing }: Props) {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("perps");
   const resetCountdown = useResetCountdown();
@@ -269,6 +274,18 @@ export default function Dashboard({ data, onReset }: Props) {
         </div>
       )}
 
+      {data.fromCache && (
+        <div className="rounded-lg px-4 py-2.5 text-[11px] text-[rgba(255,200,100,0.9)] border border-[rgba(255,200,100,0.25)] bg-[rgba(255,200,100,0.06)] font-inter">
+          {t("dash.cachedData")}
+        </div>
+      )}
+
+      {data.analysisComplete === false && (
+        <div className="rounded-lg px-4 py-2.5 text-[11px] text-[rgba(255,200,100,0.9)] border border-[rgba(255,200,100,0.25)] bg-[rgba(255,200,100,0.06)] font-inter">
+          {t("dash.partialData")}
+        </div>
+      )}
+
       {/* ── Wallet header ── */}
       <FadeUp index={0} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4">
         <div className="flex items-center gap-4">
@@ -287,12 +304,24 @@ export default function Dashboard({ data, onReset }: Props) {
             <p className="text-[10px] font-orbitron tracking-widest text-white/25 uppercase mb-1">{t("dash.analysing")}</p>
             <p className="font-mono text-white text-sm break-all">{metrics.wallet}</p>
             <p className="text-[11px] text-white/25 mt-0.5">
-              {t("dash.tradesTotal", { n: totalTrades.toLocaleString() })} &nbsp;·&nbsp; {t("dash.fetched", { date: formatDate(data.fetchedAt) })}
+              {t("dash.tradesTotal", { n: totalTrades.toLocaleString() })} &nbsp;·&nbsp; {t("dash.dataAsOf", { date: formatDate(data.fetchedAt) })}
             </p>
           </div>
         </div>
-        <button
-          onClick={onReset}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="px-4 py-2 rounded-lg font-orbitron font-bold text-[10px] tracking-widest uppercase text-[#FF6B00] transition-colors disabled:opacity-40"
+              style={{ border: "1px solid rgba(255,107,0,0.35)" }}
+            >
+              {isRefreshing ? "…" : t("dash.refresh")}
+            </button>
+          )}
+          <button
+            onClick={onReset}
           className="shrink-0 px-4 py-2 rounded-lg font-orbitron font-bold text-[10px] tracking-widest uppercase text-white/40 transition-colors"
           style={{ border: "1px solid rgba(255,107,0,0.18)" }}
           onMouseEnter={e => { e.currentTarget.style.color = "#FF6B00"; e.currentTarget.style.borderColor = "rgba(255,107,0,0.4)"; }}
@@ -300,6 +329,7 @@ export default function Dashboard({ data, onReset }: Props) {
         >
           {t("dash.newSearch")}
         </button>
+        </div>
       </FadeUp>
 
       {/* ── Tab bar ── */}
@@ -319,6 +349,7 @@ export default function Dashboard({ data, onReset }: Props) {
       {tab === "perps" && <>
         <FadeUp index={2}>
           <Section>{t("section.campaignVolume")}</Section>
+          <p className="text-[10px] text-white/25 -mt-4 mb-3 font-inter">{t("card.weeklyNote")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <MetricsCard
               index={0}
