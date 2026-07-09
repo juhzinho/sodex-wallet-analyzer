@@ -1,33 +1,51 @@
 import { NextRequest } from "next/server";
 import { analyzeWallet } from "@/services/sodex/analyzer";
 import { isValidAddress } from "@/lib/utils";
-import { isLocale, Locale } from "@/lib/i18n";
+import { isLocale, Locale, tr } from "@/lib/i18n";
 import { ProgressEvent } from "@/types";
+import { getCachedAnalysis, setCachedAnalysis } from "@/lib/analysis-cache";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 export const maxDuration = 120;
 
-// Streams Server-Sent Events so the client can show real-time progress.
-// Event format (text/event-stream):  data: <JSON>\n\n
-// Three event types:
-//   { type: "progress", message: string }  — status update while fetching
-//   { type: "complete", data: FullAnalysis } — done
-//   { type: "error",    error: string }      — fatal error
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ address: string }> }
 ) {
   const { address } = await params;
-  const langParam = _req.nextUrl.searchParams.get("lang");
+  const langParam = req.nextUrl.searchParams.get("lang");
   const locale: Locale = isLocale(langParam) ? langParam : "en";
+  const normalized = address?.toLowerCase();
 
-  if (!address || !isValidAddress(address)) {
+  if (!normalized || !isValidAddress(normalized)) {
     return new Response(
       JSON.stringify({ error: "Invalid Ethereum address." }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
+  const rate = checkRateLimit(clientIp(req));
   const encoder = new TextEncoder();
+
+  if (!rate.ok) {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "error", error: tr(locale, "error.rateLimit") })}\n\n`
+          )
+        );
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        "Retry-After": String(rate.retryAfterSec),
+      },
+    });
+  }
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -37,16 +55,27 @@ export async function GET(
             encoder.encode(`data: ${JSON.stringify(event)}\n\n`)
           );
         } catch {
-          // client disconnected — swallow
+          // client disconnected
         }
       };
 
       try {
+        const cached = getCachedAnalysis(normalized);
+        if (cached) {
+          send({ type: "progress", message: tr(locale, "progress.cached") });
+          send({
+            type: "complete",
+            data: { ...cached, fetchedAt: Date.now() },
+          });
+          return;
+        }
+
         const analysis = await analyzeWallet(
-          address.toLowerCase(),
+          normalized,
           (message) => send({ type: "progress", message }),
           locale
         );
+        setCachedAnalysis(normalized, analysis);
         send({ type: "complete", data: analysis });
       } catch (err) {
         const message =
@@ -58,7 +87,7 @@ export async function GET(
         send({
           type: "error",
           error: isNotFound
-            ? "Wallet not found or has no trading history on SoDEX."
+            ? tr(locale, "error.notFound")
             : message,
         });
       } finally {
@@ -72,7 +101,7 @@ export async function GET(
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
-      "X-Accel-Buffering": "no",   // disable nginx buffering
+      "X-Accel-Buffering": "no",
     },
   });
 }

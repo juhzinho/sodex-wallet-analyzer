@@ -295,6 +295,7 @@ export interface WalletMetrics {
   pnlBeforeFees: number;     // realizedPnl + fees — hypothetical PnL without trading costs
   pnlAfterFees: number;      // = realizedPnl (SoDEX already deducts fees per position)
   netPnlAfterFees: number;   // = netPnl (realised leg already net of fees)
+  fundingIncluded: boolean;  // false when funding history was not fetched
 }
 
 export interface ProcessedTrade {
@@ -388,8 +389,12 @@ export interface FullAnalysis {
   // ── Perps ──────────────────────────────────────────────────────────────
   metrics: WalletMetrics;
   processedTrades: ProcessedTrade[];
+  totalProcessedTrades: number;
+  tradesTruncated: boolean;
   positions: ProcessedPosition[];
   historyPositions: HistoryPosition[];
+  historyTruncated: boolean;
+  totalHistoryPositions: number;
   campaignDaily: CampaignDayPoint[];
   chartData: ChartDataPoint[];
   marketData: MarketVolumeData[];
@@ -398,6 +403,8 @@ export interface FullAnalysis {
   // ── Spot ───────────────────────────────────────────────────────────────
   spotMetrics: SpotMetrics;
   spotTrades: ProcessedTrade[];
+  spotTradesTruncated: boolean;
+  totalSpotTrades: number;
   spotMarketData: MarketVolumeData[];
   spotLongShortData: LongShortData[];
 

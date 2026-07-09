@@ -6,7 +6,11 @@ import { ProcessedTrade } from "@/types";
 import { formatUsd, formatDateTime, formatNumber } from "@/lib/formatters";
 import { useI18n } from "./I18nProvider";
 
-interface Props { trades: ProcessedTrade[] }
+interface Props {
+  trades: ProcessedTrade[];
+  truncated?: boolean;
+  totalCount?: number;
+}
 
 type SortKey = "timestamp" | "symbol" | "side" | "price" | "size" | "volume" | "fee" | "pnl";
 type SortDir  = "asc" | "desc";
@@ -15,7 +19,7 @@ const PAGE = 20;
 // Row animation values computed inline per-row
 
 
-export default function TradesTable({ trades }: Props) {
+export default function TradesTable({ trades, truncated, totalCount }: Props) {
   const { t } = useI18n();
   const [page, setSortPage]     = useState(0);
   const [sortKey, setSortKey]   = useState<SortKey>("timestamp");
@@ -67,6 +71,11 @@ export default function TradesTable({ trades }: Props) {
             {t("table.tradeHistory")}
           </h3>
           <p className="text-[11px] text-white/25 mt-0.5">{t("table.tradesCount", { n: sorted.length.toLocaleString() })}</p>
+          {truncated && totalCount != null && (
+            <p className="text-[11px] text-[rgba(255,107,0,0.55)] mt-1">
+              {t("table.tradesTruncated", { shown: trades.length.toLocaleString(), total: totalCount.toLocaleString() })}
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">

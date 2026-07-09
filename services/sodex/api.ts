@@ -21,19 +21,25 @@ import {
   ApiPositionHistory,
   ApiAccountState,
   ApiOrder,
+  ApiFunding,
   SoDEXEnvelope,
 } from "@/types";
 import { sleep, normaliseTimestamp } from "@/lib/utils";
 import { Locale, tr, TranslationKey } from "@/lib/i18n";
 
-const BASE      = "https://mainnet-gw.sodex.dev/api/v1/perps";
-const SPOT_BASE = "https://mainnet-gw.sodex.dev/api/v1/spot";
+const BASE =
+  process.env.SODEX_PERPS_BASE ??
+  "https://mainnet-gw.sodex.dev/api/v1/perps";
+const SPOT_BASE =
+  process.env.SODEX_SPOT_BASE ??
+  "https://mainnet-gw.sodex.dev/api/v1/spot";
 
 // Official max limits per endpoint — use maximum to minimise page count
 const LIMIT = {
-  trades:    1000, // official max 1000 — halves pages vs 500
-  positions: 500,  // official max 500 — 2.5x fewer pages vs 200
-  orders:    500,  // official max 500
+  trades:    1000,
+  positions: 500,
+  orders:    500,
+  fundings:  1000,
 } as const;
 
 // Retry budget for intermittent code=-1 errors (probability per attempt ≈ 30%)
@@ -193,6 +199,20 @@ export function fetchPositionHistory(
     `${BASE}/accounts/${address}/positions/history`,
     LIMIT.positions,
     "progress.positions",
+    locale,
+    onProgress
+  );
+}
+
+export function fetchFundingHistory(
+  address: string,
+  onProgress?: ProgressCallback,
+  locale: Locale = "en"
+): Promise<ApiFunding[]> {
+  return fetchAllTimeBased<ApiFunding>(
+    `${BASE}/accounts/${address}/fundings`,
+    LIMIT.fundings,
+    "progress.funding",
     locale,
     onProgress
   );

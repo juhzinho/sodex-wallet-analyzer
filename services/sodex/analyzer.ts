@@ -2,6 +2,7 @@ import {
   fetchTrades,
   fetchAccountState,
   fetchPositionHistory,
+  fetchFundingHistory,
   fetchSpotTrades,
   ProgressCallback,
 } from "./api";
@@ -30,9 +31,26 @@ import {
 } from "@/lib/utils";
 import { Locale, tr } from "@/lib/i18n";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────
+// Cap records sent over SSE — metrics/charts use the full dataset server-side.
+const MAX_SSE_TRADES = 2000;
+const MAX_SSE_SPOT_TRADES = 1000;
+const MAX_SSE_HISTORY = 500;
 
-let _tradeCounter = 0;
+function shouldFetchFunding(): boolean {
+  return process.env.SODEX_FETCH_FUNDING === "true";
+}
+
+function truncateSorted<T>(sorted: T[], max: number): {
+  items: T[];
+  truncated: boolean;
+  total: number;
+} {
+  const total = sorted.length;
+  if (total <= max) return { items: sorted, truncated: false, total };
+  return { items: sorted.slice(0, max), truncated: true, total };
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
 
 function normaliseSide(raw: string | undefined): "LONG" | "SHORT" {
   if (!raw) return "LONG";
@@ -84,7 +102,7 @@ interface PositionBook {
 // average-entry-price methodology.
 // Handles: adds, partial closes, full closes, position flips.
 
-function reconstructFromFills(rawTrades: ApiTrade[]): {
+export function reconstructFromFills(rawTrades: ApiTrade[]): {
   processedTrades: ProcessedTrade[];
   positions: ProcessedPosition[];
 } {
@@ -95,6 +113,7 @@ function reconstructFromFills(rawTrades: ApiTrade[]): {
   const book = new Map<string, PositionBook>();
   const processedTrades: ProcessedTrade[] = [];
   const positions: ProcessedPosition[] = [];
+  let posCounter = 0;
 
   for (let i = 0; i < sorted.length; i++) {
     const t = sorted[i];
@@ -142,7 +161,7 @@ function reconstructFromFills(rawTrades: ApiTrade[]): {
       }
 
       positions.push({
-        id: `pos-${_tradeCounter++}`,
+        id: `pos-${posCounter++}`,
         symbol,
         side: current.side,
         entryPrice: current.avgEntry,
@@ -196,7 +215,8 @@ function buildMetrics(
   closedPositions: ProcessedPosition[],
   posHistory: ApiPositionHistory[],
   fundings: ApiFunding[],
-  state: ApiAccountState | null
+  state: ApiAccountState | null,
+  fundingIncluded: boolean
 ): WalletMetrics {
   // ── Volume & fees from fills ──
   let volume = 0;
@@ -324,9 +344,6 @@ function buildMetrics(
       if (pnl > 0) wins.push(pnl);
       else if (pnl < 0) losses.push(pnl);
     }
-    console.log("[DEBUG] posHistory length:", posHistory.length);
-    console.log("[DEBUG] realizedPnl from posHistory:", realizedPnl);
-    console.log("[DEBUG] wins:", wins.length, "losses:", losses.length);
   } else {
     // Fallback: use reconstructed positions from fills
     for (const p of closedPositions) {
@@ -417,6 +434,7 @@ function buildMetrics(
     pnlBeforeFees,
     pnlAfterFees,
     netPnlAfterFees,
+    fundingIncluded,
   };
 }
 
@@ -479,7 +497,7 @@ function buildChartData(
 
   const getDay = (ts: number) => {
     const d = new Date(ts);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
   };
 
   for (const t of trades) {
@@ -515,8 +533,9 @@ function buildChartData(
     const dailyPnl = pnl + funding;
     cumPnl += dailyPnl;
     cumVol += volume;
+    const [y, m, d] = date.split("-").map(Number);
     return {
-      timestamp: new Date(date).getTime(),
+      timestamp: Date.UTC(y, m - 1, d),
       date,
       dailyPnl,
       cumulativePnl: cumPnl,
@@ -638,8 +657,6 @@ export async function analyzeWallet(
   onProgress?: ProgressCallback,
   locale: Locale = "en"
 ): Promise<FullAnalysis> {
-  _tradeCounter = 0;
-
   // Step 1: fetch perps trades first (heaviest — can have 50k+ fills).
   // Running alone avoids hammering the API and causing code=-1 errors.
   const rawTrades = await fetchTrades(address, onProgress, locale);
@@ -647,7 +664,9 @@ export async function analyzeWallet(
   // Step 2: fetch position history + account state in parallel.
   // Funding and spot trades removed — funding has thousands of records (slow),
   // spot trades are rarely used. Both can be re-added later if needed.
-  const [rawPosHistory, state, rawSpotTrades] = await Promise.all([
+  const fetchFunding = shouldFetchFunding();
+
+  const [rawPosHistory, state, rawSpotTrades, rawFundings] = await Promise.all([
     fetchPositionHistory(address, onProgress, locale).catch((e) => {
       console.error("[sodex] positions/history failed:", (e as Error).message);
       return [] as ApiPositionHistory[];
@@ -660,15 +679,21 @@ export async function analyzeWallet(
       console.error("[sodex] spot trades failed:", (e as Error).message);
       return [] as ApiTrade[];
     }),
+    fetchFunding
+      ? fetchFundingHistory(address, onProgress, locale).catch((e) => {
+          console.error("[sodex] fundings failed:", (e as Error).message);
+          return [] as ApiFunding[];
+        })
+      : Promise.resolve([] as ApiFunding[]),
   ]);
 
-  const rawFundings: ApiFunding[] = [];
+  const fundingIncluded = fetchFunding;
 
   onProgress?.(tr(locale, "progress.analysing"));
 
   // ── Perps ─────────────────────────────────────────────────────────────
   const { processedTrades, positions } = reconstructFromFills(rawTrades);
-  const metrics          = buildMetrics(address, processedTrades, positions, rawPosHistory, rawFundings, state);
+  const metrics          = buildMetrics(address, processedTrades, positions, rawPosHistory, rawFundings, state, fundingIncluded);
   const chartData        = buildChartData(processedTrades, rawFundings);
   const marketData       = buildMarketData(processedTrades);
   const longShortData    = buildLongShortData(processedTrades);
@@ -686,12 +711,24 @@ export async function analyzeWallet(
   const totalFees   = metrics.fees   + spotMetrics.fees;
   const totalTrades = metrics.trades + spotMetrics.trades;
 
+  const sortedTrades = [...processedTrades].sort((a, b) => b.timestamp - a.timestamp);
+  const sortedPositions = [...positions].sort((a, b) => b.closeTimestamp - a.closeTimestamp);
+  const sortedSpotTrades = [...spotTrades].sort((a, b) => b.timestamp - a.timestamp);
+
+  const perpsTradesOut = truncateSorted(sortedTrades, MAX_SSE_TRADES);
+  const spotTradesOut = truncateSorted(sortedSpotTrades, MAX_SSE_SPOT_TRADES);
+  const historyOut = truncateSorted(historyPositions, MAX_SSE_HISTORY);
+
   return {
     // Perps
     metrics,
-    processedTrades: [...processedTrades].sort((a, b) => b.timestamp - a.timestamp),
-    positions:       [...positions].sort((a, b) => b.closeTimestamp - a.closeTimestamp),
-    historyPositions,
+    processedTrades: perpsTradesOut.items,
+    totalProcessedTrades: perpsTradesOut.total,
+    tradesTruncated: perpsTradesOut.truncated,
+    positions: sortedPositions,
+    historyPositions: historyOut.items,
+    historyTruncated: historyOut.truncated,
+    totalHistoryPositions: historyOut.total,
     campaignDaily,
     chartData,
     marketData,
@@ -699,7 +736,9 @@ export async function analyzeWallet(
 
     // Spot
     spotMetrics,
-    spotTrades,
+    spotTrades: spotTradesOut.items,
+    spotTradesTruncated: spotTradesOut.truncated,
+    totalSpotTrades: spotTradesOut.total,
     spotMarketData,
     spotLongShortData,
 

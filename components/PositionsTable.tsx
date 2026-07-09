@@ -6,13 +6,17 @@ import { HistoryPosition } from "@/types";
 import { formatUsd, formatDateTime, formatNumber, formatDuration } from "@/lib/formatters";
 import { useI18n } from "./I18nProvider";
 
-interface Props { positions: HistoryPosition[] }
+interface Props {
+  positions: HistoryPosition[];
+  truncated?: boolean;
+  totalCount?: number;
+}
 
 type SortKey = "closeTimestamp" | "symbol" | "side" | "entryPrice" | "closePrice" | "size" | "realizedPnl" | "durationMs";
 type SortDir  = "asc" | "desc";
 const PAGE = 20;
 
-export default function PositionsTable({ positions }: Props) {
+export default function PositionsTable({ positions, truncated, totalCount }: Props) {
   const { t } = useI18n();
   const [page, setPage]       = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("closeTimestamp");
@@ -64,6 +68,11 @@ export default function PositionsTable({ positions }: Props) {
             {t("table.positions")}
           </h3>
           <p className="text-[11px] text-white/25 mt-0.5">{t("table.positionsClosed", { n: sorted.length.toLocaleString() })}</p>
+          {truncated && totalCount != null && (
+            <p className="text-[11px] text-[rgba(255,107,0,0.55)] mt-1">
+              {t("table.historyTruncated", { shown: positions.length.toLocaleString(), total: totalCount.toLocaleString() })}
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">

@@ -51,6 +51,7 @@ const en = {
   "error.notFound": "Wallet not found or has no trading history on SoDEX.",
   "error.invalidAddress": "Invalid Ethereum address.",
   "error.connectionLost": "Connection to analysis stream lost.",
+  "error.rateLimit": "Too many requests — please wait a minute and try again.",
   "error.unknown": "Unknown error",
 
   // Dashboard — header
@@ -58,6 +59,11 @@ const en = {
   "dash.tradesTotal": "{n} trades total",
   "dash.fetched": "fetched {date}",
   "dash.newSearch": "← New Search",
+
+  // Tabs
+  "tab.perps": "Perps",
+  "tab.spot": "Spot",
+  "tab.total": "Total",
 
   // Sections
   "section.campaignVolume": "Campaign Volume",
@@ -91,6 +97,7 @@ const en = {
   "card.fees": "Fees",
   "card.feesSub": "Maker + taker",
   "card.funding": "Funding",
+  "card.fundingUnavailable": "Not loaded (performance)",
   "card.received": "Received",
   "card.paid": "Paid",
   "card.winRate": "Win Rate",
@@ -140,12 +147,14 @@ const en = {
   "card.pnlAfterFeesSub": "Fees of {v} already included",
   "card.netPnlAfterFees": "Total Result",
   "card.netPnlAfterFeesSub": "Realised + unrealised + funding",
+  "card.netPnlAfterFeesSubNoFunding": "Realised + unrealised",
 
   // Charts
   "chart.tradesPerDay": "Trades per day",
   "chart.tradesPerDaySub": "Last 14 campaign days (21:00 BRT)",
   "chart.cumPnl": "Cumulative PnL",
   "chart.cumPnlSub": "Realised PnL + funding",
+  "chart.cumPnlSubRealised": "Realised PnL from fills",
   "chart.longVsShort": "Long vs Short",
   "chart.tradeCount": "Trade count",
   "chart.dailyVolume": "Daily Volume",
@@ -170,6 +179,8 @@ const en = {
   // Trades table
   "table.tradeHistory": "Trade History",
   "table.tradesCount": "{n} trades",
+  "table.tradesTruncated": "Showing {shown} most recent of {total} trades (metrics use full history).",
+  "table.historyTruncated": "Showing {shown} most recent of {total} closed positions.",
   "table.colDate": "Date",
   "table.colSymbol": "Symbol",
   "table.colSide": "Side",
@@ -228,8 +239,10 @@ const en = {
   "progress.connecting": "Connecting...",
   "progress.trades": "Fetching trades",
   "progress.positions": "Fetching positions",
+  "progress.funding": "Fetching funding",
   "progress.spot": "Fetching spot trades",
   "progress.analysing": "Analysing data...",
+  "progress.cached": "Loaded from cache...",
   "progress.page": "{label}... page {page} ({count} records)",
 } as const;
 
@@ -258,12 +271,17 @@ const ptBR: Dict = {
   "error.notFound": "Carteira não encontrada ou sem histórico de trading na SoDEX.",
   "error.invalidAddress": "Endereço Ethereum inválido.",
   "error.connectionLost": "Conexão com o stream de análise foi perdida.",
+  "error.rateLimit": "Muitas requisições — aguarde um minuto e tente novamente.",
   "error.unknown": "Erro desconhecido",
 
   "dash.analysing": "Analisando Carteira",
   "dash.tradesTotal": "{n} trades no total",
   "dash.fetched": "buscado em {date}",
   "dash.newSearch": "← Nova Busca",
+
+  "tab.perps": "Perps",
+  "tab.spot": "Spot",
+  "tab.total": "Total",
 
   "section.campaignVolume": "Volume da Campanha",
   "section.overview": "Visão Geral",
@@ -294,6 +312,7 @@ const ptBR: Dict = {
   "card.fees": "Taxas",
   "card.feesSub": "Maker + taker",
   "card.funding": "Funding",
+  "card.fundingUnavailable": "Não carregado (performance)",
   "card.received": "Recebido",
   "card.paid": "Pago",
   "card.winRate": "Taxa de Acerto",
@@ -341,11 +360,13 @@ const ptBR: Dict = {
   "card.pnlAfterFeesSub": "Taxas de {v} já descontadas",
   "card.netPnlAfterFees": "Resultado Total",
   "card.netPnlAfterFeesSub": "Realizado + não realizado + funding",
+  "card.netPnlAfterFeesSubNoFunding": "Realizado + não realizado",
 
   "chart.tradesPerDay": "Trades por dia",
   "chart.tradesPerDaySub": "Últimos 14 dias de campanha (21:00 BRT)",
   "chart.cumPnl": "PnL Acumulado",
   "chart.cumPnlSub": "PnL realizado + funding",
+  "chart.cumPnlSubRealised": "PnL realizado a partir dos fills",
   "chart.longVsShort": "Long vs Short",
   "chart.tradeCount": "Contagem de trades",
   "chart.dailyVolume": "Volume Diário",
@@ -367,6 +388,8 @@ const ptBR: Dict = {
   "table.page": "Página {p} / {total}",
   "table.tradeHistory": "Histórico de Trades",
   "table.tradesCount": "{n} trades",
+  "table.tradesTruncated": "Exibindo {shown} mais recentes de {total} trades (métricas usam histórico completo).",
+  "table.historyTruncated": "Exibindo {shown} posições fechadas mais recentes de {total}.",
   "table.colDate": "Data",
   "table.colSymbol": "Símbolo",
   "table.colSide": "Lado",
@@ -420,8 +443,10 @@ const ptBR: Dict = {
   "progress.connecting": "Conectando...",
   "progress.trades": "Buscando trades",
   "progress.positions": "Buscando posições",
+  "progress.funding": "Buscando funding",
   "progress.spot": "Buscando trades spot",
   "progress.analysing": "Analisando dados...",
+  "progress.cached": "Carregado do cache...",
   "progress.page": "{label}... página {page} ({count} registros)",
 };
 
@@ -447,12 +472,17 @@ const es: Dict = {
   "error.notFound": "Cartera no encontrada o sin historial de trading en SoDEX.",
   "error.invalidAddress": "Dirección Ethereum inválida.",
   "error.connectionLost": "Se perdió la conexión con el stream de análisis.",
+  "error.rateLimit": "Demasiadas solicitudes — espera un minuto e inténtalo de nuevo.",
   "error.unknown": "Error desconocido",
 
   "dash.analysing": "Analizando Cartera",
   "dash.tradesTotal": "{n} trades en total",
   "dash.fetched": "obtenido {date}",
   "dash.newSearch": "← Nueva Búsqueda",
+
+  "tab.perps": "Perps",
+  "tab.spot": "Spot",
+  "tab.total": "Total",
 
   "section.campaignVolume": "Volumen de Campaña",
   "section.overview": "Resumen",
@@ -483,6 +513,7 @@ const es: Dict = {
   "card.fees": "Comisiones",
   "card.feesSub": "Maker + taker",
   "card.funding": "Funding",
+  "card.fundingUnavailable": "No cargado (rendimiento)",
   "card.received": "Recibido",
   "card.paid": "Pagado",
   "card.winRate": "Tasa de Acierto",
@@ -530,11 +561,13 @@ const es: Dict = {
   "card.pnlAfterFeesSub": "Comisiones de {v} ya descontadas",
   "card.netPnlAfterFees": "Resultado Total",
   "card.netPnlAfterFeesSub": "Realizado + no realizado + funding",
+  "card.netPnlAfterFeesSubNoFunding": "Realizado + no realizado",
 
   "chart.tradesPerDay": "Trades por día",
   "chart.tradesPerDaySub": "Últimos 14 días de campaña (21:00 BRT)",
   "chart.cumPnl": "PnL Acumulado",
   "chart.cumPnlSub": "PnL realizado + funding",
+  "chart.cumPnlSubRealised": "PnL realizado a partir de fills",
   "chart.longVsShort": "Long vs Short",
   "chart.tradeCount": "Número de trades",
   "chart.dailyVolume": "Volumen Diario",
@@ -556,6 +589,8 @@ const es: Dict = {
   "table.page": "Página {p} / {total}",
   "table.tradeHistory": "Historial de Trades",
   "table.tradesCount": "{n} trades",
+  "table.tradesTruncated": "Mostrando {shown} más recientes de {total} trades (métricas usan historial completo).",
+  "table.historyTruncated": "Mostrando {shown} posiciones cerradas más recientes de {total}.",
   "table.colDate": "Fecha",
   "table.colSymbol": "Símbolo",
   "table.colSide": "Lado",
@@ -609,8 +644,10 @@ const es: Dict = {
   "progress.connecting": "Conectando...",
   "progress.trades": "Obteniendo trades",
   "progress.positions": "Obteniendo posiciones",
+  "progress.funding": "Obteniendo funding",
   "progress.spot": "Obteniendo trades spot",
   "progress.analysing": "Analizando datos...",
+  "progress.cached": "Cargado desde caché...",
   "progress.page": "{label}... página {page} ({count} registros)",
 };
 

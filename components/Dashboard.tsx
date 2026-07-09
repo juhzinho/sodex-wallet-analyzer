@@ -176,10 +176,11 @@ function TabBar({ active, onChange, counts }: {
   onChange: (t: Tab) => void;
   counts: Record<Tab, number>;
 }) {
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "perps", label: "Perps" },
-    { id: "spot",  label: "Spot"  },
-    { id: "total", label: "Total" },
+  const { t } = useI18n();
+  const tabs: { id: Tab; labelKey: "tab.perps" | "tab.spot" | "tab.total" }[] = [
+    { id: "perps", labelKey: "tab.perps" },
+    { id: "spot",  labelKey: "tab.spot"  },
+    { id: "total", labelKey: "tab.total" },
   ];
 
   return (
@@ -187,7 +188,7 @@ function TabBar({ active, onChange, counts }: {
       className="flex gap-1 p-1 rounded-xl w-fit"
       style={{ background: "rgba(255,107,0,0.05)", border: "1px solid rgba(255,107,0,0.15)" }}
     >
-      {tabs.map(({ id, label }) => {
+      {tabs.map(({ id, labelKey }) => {
         const isActive = active === id;
         return (
           <motion.button
@@ -202,7 +203,7 @@ function TabBar({ active, onChange, counts }: {
               boxShadow:  isActive ? "0 0 16px rgba(255,107,0,0.35)" : "none",
             }}
           >
-            {label}
+            {t(labelKey)}
             <span
               className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full"
               style={{
@@ -233,17 +234,20 @@ export default function Dashboard({ data, onReset }: Props) {
     chartData, marketData, longShortData,
     spotMetrics, spotTrades, spotMarketData, spotLongShortData,
     totalVolume, totalFees, totalTrades,
+    tradesTruncated, totalProcessedTrades,
+    historyTruncated, totalHistoryPositions,
+    spotTradesTruncated, totalSpotTrades,
   } = data;
 
   const pnlTrend  = metrics.realizedPnl  > 0 ? "positive" : metrics.realizedPnl  < 0 ? "negative" : "neutral";
   const uPnlTrend = metrics.unrealizedPnl > 0 ? "positive" : metrics.unrealizedPnl < 0 ? "negative" : "neutral";
   const fundTrend = metrics.funding > 0 ? "positive" : metrics.funding < 0 ? "negative" : "neutral";
+  const showFunding = metrics.fundingIncluded;
   const wrTrend   = metrics.winRate >= 50 ? "positive" : metrics.winRate > 0 ? "negative" : "neutral";
   const profitTrend = metrics.grossProfit > 0 ? "positive" : "neutral";
   const lossTrend   = metrics.grossLoss < 0 ? "negative" : "neutral";
   const beforeFeesTrend = metrics.pnlBeforeFees > 0 ? "positive" : metrics.pnlBeforeFees < 0 ? "negative" : "neutral";
   const afterFeesTrend = metrics.pnlAfterFees > 0 ? "positive" : metrics.pnlAfterFees < 0 ? "negative" : "neutral";
-  const netAfterFeesTrend = metrics.netPnlAfterFees > 0 ? "positive" : metrics.netPnlAfterFees < 0 ? "negative" : "neutral";
 
   return (
     <div className="space-y-8">
@@ -331,12 +335,14 @@ export default function Dashboard({ data, onReset }: Props) {
 
         <FadeUp index={3}>
           <Section>{t("section.overview")}</Section>
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className={`grid grid-cols-2 sm:grid-cols-3 gap-4 ${showFunding ? "xl:grid-cols-6" : "xl:grid-cols-5"}`}>
             <MetricsCard index={0} title={t("card.volume")}        rawValue={metrics.volume}            displayValue={formatUsd(metrics.volume, { compact: true })}                     subValue={t("card.volumeSub", { n: metrics.trades.toLocaleString() })}   trend="neutral"  icon={<I.Volume />} />
             <MetricsCard index={1} title={t("card.realisedPnl")}  rawValue={metrics.realizedPnl}       displayValue={formatUsd(metrics.realizedPnl, { compact: true, signed: true })}  subValue={t("card.realisedPnlSub", { v: formatUsd(metrics.netPnl, { compact: true, signed: true }) })} trend={pnlTrend} icon={<I.Pnl />} />
             <MetricsCard index={2} title={t("card.unrealisedPnl")} rawValue={metrics.unrealizedPnl}    displayValue={formatUsd(metrics.unrealizedPnl, { compact: true, signed: true })} subValue={t("card.unrealisedPnlSub")} trend={uPnlTrend} icon={<I.Pnl />} />
             <MetricsCard index={3} title={t("card.fees")}          rawValue={metrics.fees}              displayValue={formatUsd(metrics.fees, { compact: true })}                       subValue={t("card.feesSub")}  trend="negative" icon={<I.Fee />} />
-            <MetricsCard index={4} title={t("card.funding")}       rawValue={Math.abs(metrics.funding)} displayValue={formatUsd(metrics.funding, { compact: true, signed: true })}      subValue={metrics.funding >= 0 ? t("card.received") : t("card.paid")} trend={fundTrend} icon={<I.Funding />} />
+            {showFunding && (
+              <MetricsCard index={4} title={t("card.funding")}       rawValue={Math.abs(metrics.funding)} displayValue={formatUsd(metrics.funding, { compact: true, signed: true })}      subValue={metrics.funding >= 0 ? t("card.received") : t("card.paid")} trend={fundTrend} icon={<I.Funding />} />
+            )}
             <MetricsCard index={5} title={t("card.winRate")}      rawValue={metrics.winRate}           displayValue={formatPercent(metrics.winRate)}                                    subValue={t("card.winRateSub", { w: metrics.winningPositions, l: metrics.losingPositions })} trend={wrTrend} icon={<I.WinRate />} />
           </div>
         </FadeUp>
@@ -383,37 +389,6 @@ export default function Dashboard({ data, onReset }: Props) {
           </div>
         </FadeUp>
 
-        <FadeUp index={4.5}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="relative">
-              <div className="absolute inset-0 bg-green-500/10 rounded-xl blur-xl" />
-              <MetricsCard
-                index={0}
-                title={t("stat.grossProfit")}
-                rawValue={metrics.grossProfit}
-                displayValue={formatUsd(metrics.grossProfit, { compact: true, signed: true })}
-                subValue={t("card.grossProfitSub", { n: metrics.winningPositions.toLocaleString() })}
-                trend={profitTrend}
-                icon={<I.Profit />}
-                className="relative col-span-1 sm:col-span-1 border border-green-500/30"
-              />
-            </div>
-            <div className="relative">
-              <div className="absolute inset-0 bg-orange-500/10 rounded-xl blur-xl" />
-              <MetricsCard
-                index={1}
-                title={t("card.realisedPnl")}
-                rawValue={metrics.realizedPnl}
-                displayValue={formatUsd(metrics.realizedPnl, { compact: true, signed: true })}
-                subValue={t("card.realisedPnlSub", { v: formatUsd(metrics.netPnl, { compact: true, signed: true }) })}
-                trend={pnlTrend}
-                icon={<I.Pnl />}
-                className="relative col-span-1 sm:col-span-1 border border-orange-500/30"
-              />
-            </div>
-          </div>
-        </FadeUp>
-
         <FadeUp index={5} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="glass-card p-5">
             <p className="text-[10px] font-orbitron font-bold tracking-widest uppercase text-[rgba(255,107,0,0.6)] mb-3">{t("stat.performance")}</p>
@@ -445,7 +420,9 @@ export default function Dashboard({ data, onReset }: Props) {
             <StatRow label={t("stat.pnlAfterFees")}     value={formatUsd(metrics.pnlAfterFees,      { signed: true })} color={metrics.pnlAfterFees      >= 0 ? "#22c55e" : "#ef4444"} />
             <StatRow label={t("stat.realised")}          value={formatUsd(metrics.realizedPnl,       { signed: true })} color={metrics.realizedPnl       >= 0 ? "#22c55e" : "#ef4444"} />
             <StatRow label={t("stat.unrealised")}        value={formatUsd(metrics.unrealizedPnl,     { signed: true })} color={metrics.unrealizedPnl     >= 0 ? "#22c55e" : "#ef4444"} />
-            <StatRow label={t("card.funding")}           value={formatUsd(metrics.funding,            { signed: true })} color={metrics.funding            >= 0 ? "#22c55e" : "#ef4444"} />
+            {showFunding && (
+              <StatRow label={t("card.funding")}           value={formatUsd(metrics.funding,            { signed: true })} color={metrics.funding            >= 0 ? "#22c55e" : "#ef4444"} />
+            )}
             <StatRow label={t("stat.netPnlAfterFees")}  value={formatUsd(metrics.netPnlAfterFees,   { signed: true })} color={metrics.netPnlAfterFees   >= 0 ? "#FF6B00" : "#ef4444"} />
           </div>
         </FadeUp>
@@ -483,7 +460,11 @@ export default function Dashboard({ data, onReset }: Props) {
         <FadeUp index={7}>
           <Section>{t("section.charts")}</Section>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <ChartCard title={t("chart.cumPnl")} subtitle={t("chart.cumPnlSub")} className="lg:col-span-2">
+            <ChartCard
+              title={t("chart.cumPnl")}
+              subtitle={showFunding ? t("chart.cumPnlSub") : t("chart.cumPnlSubRealised")}
+              className="lg:col-span-2"
+            >
               <PnlChart data={chartData} />
             </ChartCard>
             <ChartCard title={t("chart.longVsShort")} subtitle={t("chart.tradeCount")}>
@@ -503,12 +484,20 @@ export default function Dashboard({ data, onReset }: Props) {
 
         <FadeUp index={9}>
           <Section>{t("section.positions")}</Section>
-          <PositionsTable positions={historyPositions} />
+          <PositionsTable
+            positions={historyPositions}
+            truncated={historyTruncated}
+            totalCount={totalHistoryPositions}
+          />
         </FadeUp>
 
         <FadeUp index={10}>
           <Section>{t("section.tradeHistory")}</Section>
-          <TradesTable trades={processedTrades} />
+          <TradesTable
+            trades={processedTrades}
+            truncated={tradesTruncated}
+            totalCount={totalProcessedTrades}
+          />
         </FadeUp>
       </>}
 
@@ -542,7 +531,11 @@ export default function Dashboard({ data, onReset }: Props) {
           </FadeUp>
           <FadeUp index={4}>
             <Section>{t("section.spotTradeHistory")}</Section>
-            <TradesTable trades={spotTrades} />
+            <TradesTable
+              trades={spotTrades}
+              truncated={spotTradesTruncated}
+              totalCount={totalSpotTrades}
+            />
           </FadeUp>
         </>}
       </>}

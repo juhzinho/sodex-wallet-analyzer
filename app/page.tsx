@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import WalletAnalyzer from "@/components/WalletAnalyzer";
 import LanguageSelector from "@/components/LanguageSelector";
+import LoadingState from "@/components/LoadingState";
 
 function SoDEXLogo() {
   return (
@@ -94,7 +96,9 @@ export default function Home() {
 
       {/* ── Main ── */}
       <main className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <WalletAnalyzer />
+        <Suspense fallback={<LoadingState progress={null} />}>
+          <WalletAnalyzer />
+        </Suspense>
       </main>
 
       {/* ── Footer ── */}
