@@ -1,23 +1,15 @@
 "use client";
 
 import { useI18n } from "./I18nProvider";
-import HomeButton from "./HomeButton";
 
 interface Props {
   progress?: string | null;
-  onCancel?: () => void;
 }
 
-export default function LoadingState({ progress, onCancel }: Props) {
+export default function LoadingState({ progress }: Props) {
   const { t } = useI18n();
   return (
     <div className="space-y-6 mt-10">
-      {onCancel && (
-        <div className="flex justify-center">
-          <HomeButton onClick={onCancel} variant="prominent" />
-        </div>
-      )}
-
       {/* Spinner + live progress */}
       <div className="flex flex-col items-center gap-4 py-8">
         {/* Dual-ring spinner */}
@@ -46,7 +38,7 @@ export default function LoadingState({ progress, onCancel }: Props) {
             {progress ?? t("loading.default")}
           </p>
           <p className="text-xs text-white/25 mt-1 font-inter">
-            {onCancel ? t("loading.cancelHint") : t("loading.subtitle")}
+            {t("loading.subtitle")}
           </p>
         </div>
       </div>

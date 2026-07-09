@@ -45,6 +45,7 @@ export function useWalletAnalysis() {
     });
 
     const handleEvent = (msg: ProgressEvent) => {
+      if (ac.signal.aborted) return;
       if (msg.type === "progress") {
         setState((prev) => ({
           ...prev,
@@ -118,6 +119,8 @@ export function useWalletAnalysis() {
           break;
         }
       }
+
+      if (ac.signal.aborted) return;
 
       if (!gotComplete && !gotPartial) {
         setState((prev) =>

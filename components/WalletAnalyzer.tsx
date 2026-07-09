@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useWalletAnalysis } from "@/hooks/useWalletAnalysis";
 import { isValidAddress } from "@/lib/utils";
 import { useI18n } from "./I18nProvider";
 import { useAnalysisNavSync } from "./HomeShell";
-import HomeButton from "./HomeButton";
 import WalletInput from "./WalletInput";
 import LoadingState from "./LoadingState";
 import ErrorState from "./ErrorState";
@@ -26,10 +25,12 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const autoStarted = useRef(false);
+  const [inputKey, setInputKey] = useState(0);
 
   const handleAnalyze = useCallback(
     (address: string) => {
       const addr = address.toLowerCase();
+      autoStarted.current = true;
       router.replace(`/?wallet=${encodeURIComponent(addr)}`, { scroll: false });
       analyze(addr, locale);
     },
@@ -37,7 +38,9 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
   );
 
   const handleReset = useCallback(() => {
-    autoStarted.current = false;
+    // Block deep-link auto-start until ?wallet= is cleared from the URL.
+    autoStarted.current = true;
+    setInputKey((k) => k + 1);
     router.replace("/", { scroll: false });
     reset();
   }, [reset, router]);
@@ -46,10 +49,14 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
   useAnalysisNavSync(onNavChange, analysisActive, handleReset);
 
   useEffect(() => {
-    if (autoStarted.current || state.status !== "idle") return;
-
     const wallet = searchParams.get("wallet")?.trim();
-    if (!wallet || !isValidAddress(wallet)) return;
+
+    if (!wallet || !isValidAddress(wallet)) {
+      autoStarted.current = false;
+      return;
+    }
+
+    if (autoStarted.current || state.status !== "idle") return;
 
     autoStarted.current = true;
     analyze(wallet.toLowerCase(), locale);
@@ -57,12 +64,6 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
 
   return (
     <div>
-      {analysisActive && (
-        <div className="flex justify-end mb-4 sm:hidden">
-          <HomeButton onClick={handleReset} variant="prominent" />
-        </div>
-      )}
-
       <div
         className={
           state.status !== "idle" &&
@@ -73,20 +74,20 @@ export default function WalletAnalyzer({ onNavChange }: Props) {
         }
       >
         <WalletInput
+          key={inputKey}
           onSubmit={handleAnalyze}
           isLoading={state.status === "loading" || state.status === "enriching"}
         />
       </div>
 
       {state.status === "loading" && (
-        <LoadingState progress={state.progress} onCancel={handleReset} />
+        <LoadingState progress={state.progress} />
       )}
 
       {state.status === "enriching" && state.data && (
         <>
-          <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-2 rounded-lg text-[11px] font-orbitron tracking-wider text-[#FF6B00] border border-[rgba(255,107,0,0.25)] bg-[rgba(255,107,0,0.06)]">
-            <span className="text-center sm:text-left">{state.progress}</span>
-            <HomeButton onClick={handleReset} variant="prominent" className="shrink-0" />
+          <div className="mb-4 px-4 py-2 rounded-lg text-center text-[11px] font-orbitron tracking-wider text-[#FF6B00] border border-[rgba(255,107,0,0.25)] bg-[rgba(255,107,0,0.06)]">
+            {state.progress}
           </div>
           <Dashboard data={state.data} onReset={handleReset} />
         </>
