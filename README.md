@@ -61,9 +61,13 @@ lib/i18n.ts                          en / pt-BR / es translations
 
 ## Performance
 
-- **Metrics and charts** are computed from the full trade history server-side.
-- **SSE payload** is capped (2 000 perps trades, 1 000 spot, 500 positions) to keep responses fast for heavy wallets.
-- **Repeated lookups** within the cache TTL return instantly from server memory.
+- **Parallel time-window fetching** — trades and positions are fetched in ~5 concurrent 21-day windows instead of one page at a time. A wallet with 113k fills that took 10+ min now typically finishes in **2–4 minutes**.
+- **Full parallel pipeline** — trades, positions, account state and spot (if any) run simultaneously.
+- **SSE keepalive** every 12s — prevents proxy/browser from dropping the connection mid-scan.
+- **5-minute server cache** — repeat lookups are instant.
+- **Metrics** use the full history; **tables** cap at 2 000 trades for fast rendering.
+
+Tune via env vars: `SODEX_FETCH_CONCURRENCY`, `SODEX_TIME_CHUNK_DAYS`, `SODEX_PARALLEL_FETCH`.
 
 ## Languages
 

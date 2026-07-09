@@ -243,6 +243,8 @@ const en = {
   "progress.spot": "Fetching spot trades",
   "progress.analysing": "Analysing data...",
   "progress.cached": "Loaded from cache...",
+  "progress.parallelStart": "Fetching {label} in parallel ({windows} time windows)...",
+  "progress.parallel": "{label}... {done}/{total} windows ({count} records)",
   "progress.page": "{label}... page {page} ({count} records)",
 } as const;
 
@@ -447,6 +449,8 @@ const ptBR: Dict = {
   "progress.spot": "Buscando trades spot",
   "progress.analysing": "Analisando dados...",
   "progress.cached": "Carregado do cache...",
+  "progress.parallelStart": "Buscando {label} em paralelo ({windows} janelas)...",
+  "progress.parallel": "{label}... {done}/{total} janelas ({count} registros)",
   "progress.page": "{label}... página {page} ({count} registros)",
 };
 
@@ -648,6 +652,8 @@ const es: Dict = {
   "progress.spot": "Obteniendo trades spot",
   "progress.analysing": "Analizando datos...",
   "progress.cached": "Cargado desde caché...",
+  "progress.parallelStart": "Obteniendo {label} en paralelo ({windows} ventanas)...",
+  "progress.parallel": "{label}... {done}/{total} ventanas ({count} registros)",
   "progress.page": "{label}... página {page} ({count} registros)",
 };
 

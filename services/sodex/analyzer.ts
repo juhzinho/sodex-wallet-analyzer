@@ -4,6 +4,7 @@ import {
   fetchPositionHistory,
   fetchFundingHistory,
   fetchSpotTrades,
+  fetchSpotTradesIfAny,
   ProgressCallback,
 } from "./api";
 import {
@@ -657,35 +658,31 @@ export async function analyzeWallet(
   onProgress?: ProgressCallback,
   locale: Locale = "en"
 ): Promise<FullAnalysis> {
-  // Step 1: fetch perps trades first (heaviest — can have 50k+ fills).
-  // Running alone avoids hammering the API and causing code=-1 errors.
-  const rawTrades = await fetchTrades(address, onProgress, locale);
-
-  // Step 2: fetch position history + account state in parallel.
-  // Funding and spot trades removed — funding has thousands of records (slow),
-  // spot trades are rarely used. Both can be re-added later if needed.
   const fetchFunding = shouldFetchFunding();
 
-  const [rawPosHistory, state, rawSpotTrades, rawFundings] = await Promise.all([
-    fetchPositionHistory(address, onProgress, locale).catch((e) => {
-      console.error("[sodex] positions/history failed:", (e as Error).message);
-      return [] as ApiPositionHistory[];
-    }),
-    fetchAccountState(address).catch((e) => {
-      console.error("[sodex] state failed:", (e as Error).message);
-      return null as ApiAccountState | null;
-    }),
-    fetchSpotTrades(address, onProgress, locale).catch((e) => {
-      console.error("[sodex] spot trades failed:", (e as Error).message);
-      return [] as ApiTrade[];
-    }),
-    fetchFunding
-      ? fetchFundingHistory(address, onProgress, locale).catch((e) => {
-          console.error("[sodex] fundings failed:", (e as Error).message);
-          return [] as ApiFunding[];
-        })
-      : Promise.resolve([] as ApiFunding[]),
-  ]);
+  // Fetch everything in parallel — trades use parallel time windows internally.
+  const [rawTrades, rawPosHistory, state, rawSpotTrades, rawFundings] =
+    await Promise.all([
+      fetchTrades(address, onProgress, locale),
+      fetchPositionHistory(address, onProgress, locale).catch((e) => {
+        console.error("[sodex] positions/history failed:", (e as Error).message);
+        return [] as ApiPositionHistory[];
+      }),
+      fetchAccountState(address).catch((e) => {
+        console.error("[sodex] state failed:", (e as Error).message);
+        return null as ApiAccountState | null;
+      }),
+      fetchSpotTradesIfAny(address, onProgress, locale).catch((e) => {
+        console.error("[sodex] spot trades failed:", (e as Error).message);
+        return [] as ApiTrade[];
+      }),
+      fetchFunding
+        ? fetchFundingHistory(address, onProgress, locale).catch((e) => {
+            console.error("[sodex] fundings failed:", (e as Error).message);
+            return [] as ApiFunding[];
+          })
+        : Promise.resolve([] as ApiFunding[]),
+    ]);
 
   const fundingIncluded = fetchFunding;
 
